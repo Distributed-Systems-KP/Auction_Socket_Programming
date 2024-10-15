@@ -35,8 +35,9 @@ class AuctioneerServer:
                 if not self.auction_details:
                     conn.sendall(b"Server is busy. Try to connect again later.\n")
                     conn.close()
-                print(f"New Buyer is connected from {addr[0]}:{addr[1]}")
-                threading.Thread(target=self.handle_buyer, args=(conn, addr)).start()              
+                else:
+                    print(f"New Buyer is connected from {addr[0]}:{addr[1]}")
+                    threading.Thread(target=self.handle_buyer, args=(conn, addr)).start()              
 
     def handle_seller(self, conn, addr):
         
@@ -79,7 +80,7 @@ class AuctioneerServer:
 
     def handle_buyer(self, conn, addr):
         print(">> New Buyer Thread spawned")
-        conn.sendall(b"Your role is: [Buyer]\nThe Auctioneer is still waiting for other Buyer to connect...\n")
+        conn.sendall(b"Your role is: [Buyer]\n")
 
         with self.buyer_lock:
             if len(self.buyers) < self.auction_details['max_bids']:
