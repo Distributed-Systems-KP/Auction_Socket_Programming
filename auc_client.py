@@ -1,106 +1,72 @@
 import socket
-import sys
+import threading
 
-# Constants for client roles
-SELLER = "seller"
-BUYER = "buyer"
+HOST = '127.0.0.1'  # Server's hostname or IP address
+PORT = 12345        # Port used by the server
 
-# Client class to handle both seller and buyer modes
-class AuctionClient:
-    def __init__(self, server_ip, server_port):
-        self.server_ip = server_ip
-        self.server_port = server_port
-        self.socket = None
+def handle_server_messages(sock):
+    """ Continuously listen for messages from the server """
+    while True:
+        try:
+            message = sock.recv(1024).decode()
+            if message:
+                print(f"{message}")
+        except Exception as e:
+            print(f"Error receiving message from server: {e}")
+            break
+
+def seller_client(sock):
+    # Input auction details from the seller in a single line
+    auction_input = input("Enter auction type, minimum price, maximum number of bids, and item name (separated by spaces): ")
+    auction_details = auction_input.split()
+
+
+    auc_type, auc_min_price, max_bids, item_name = auction_details
+
+    # Validate inputs
+
+    # Send auction details to the server
+    auction_request = f"{auc_type} {auc_min_price} {max_bids} {item_name}"
+    sock.sendall(auction_request.encode())
+    print("Auction request sent to server.")
+
+    # Start a thread to handle incoming messages from the server
+    threading.Thread(target=handle_server_messages, args=(sock,), daemon=True).start()
+
+    # Keep the main thread alive to continue listening for server messages
+    while True:
+        pass
+
+def buyer_client(sock):
     
-    # Connect to the server
-    def connect(self):
+    while True:
         try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((self.server_ip, self.server_port))
-            print(f"Connected to server at {self.server_ip}:{self.server_port}")
+            message = sock.recv(1024).decode()
+            if message:
+                print(f"{message}")
+            if "Please submit your bid" in message:
+                bid_amount = input("Enter bid:")
+                sock.sendall(bid_amount.encode())
         except Exception as e:
-            print(f"Failed to connect to the server: {e}")
-            sys.exit()
+            print(f"Error receiving message from server: {e}")
+            break
 
-    # Seller logic to submit auction request
-    def seller_mode(self):
-        try:
-            # Read auction request details from user
-            auction_type = input("Enter auction type (1 for first-price, 2 for second-price): ")
-            lowest_price = input("Enter lowest price: ")
-            number_of_bids = input("Enter number of bids (max 10): ")
-            item_name = input("Enter item name: ")
+    
+def main():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        print(f"Connecting to server at {HOST}:{PORT}...")
+        sock.connect((HOST, PORT))
+        
+        # Receive initial role assignment from the server
+        initial_message = sock.recv(1024).decode()
+        print(f"Server: {initial_message}")
+        
+        if "[Seller]" in initial_message:
+            seller_client(sock)
+        elif "[Buyer]" in initial_message:
+            buyer_client(sock)
+        else:
+            print("Unexpected role message from server.")
 
-            # Format the request and send to server
-            auction_request = f"{auction_type} {lowest_price} {number_of_bids} {item_name}"
-            self.socket.sendall(auction_request.encode())
-            print(f"Sent auction request: {auction_request}")
-
-            # Receive server response
-            server_response = self.socket.recv(1024).decode()
-            print(f"Server response: {server_response}")
-
-            # Wait for auction result
-            while True:
-                result = self.socket.recv(1024).decode()
-                if result:
-                    print(f"Auction result: {result}")
-                    break
-        except Exception as e:
-            print(f"Error in seller mode: {e}")
-        finally:
-            self.socket.close()
-
-    # Buyer logic to submit a bid
-    def buyer_mode(self):
-        try:
-            print("Waiting for the server to start the bidding...")
-
-            # Wait for bidding start signal
-            while True:
-                bidding_start_msg = self.socket.recv(1024).decode()
-                if bidding_start_msg == "Bidding start!":
-                    print("Bidding has started!")
-                    break
-            
-            # Submit the bid
-            bid = input("Enter your bid (positive integer): ")
-            self.socket.sendall(bid.encode())
-            print(f"Sent bid: {bid}")
-
-            # Receive bid confirmation
-            server_response = self.socket.recv(1024).decode()
-            print(f"Server response: {server_response}")
-
-            # Wait for auction result
-            while True:
-                result = self.socket.recv(1024).decode()
-                if result:
-                    print(f"Auction result: {result}")
-                    break
-        except Exception as e:
-            print(f"Error in buyer mode: {e}")
-        finally:
-            self.socket.close()
-
-# Main client function
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python auc_client.py <server_ip> <server_port> <role (seller/buyer)>")
-        sys.exit()
-
-    server_ip = sys.argv[1]
-    server_port = int(sys.argv[2])
-    role = sys.argv[3].lower()
-
-    # Create client instance and connect to server
-    client = AuctionClient(server_ip, server_port)
-    client.connect()
-
-    # Based on the role, execute seller or buyer mode
-    if role == SELLER:
-        client.seller_mode()
-    elif role == BUYER:
-        client.buyer_mode()
-    else:
-        print("Invalid role! Use 'seller' or 'buyer'.")
+    main()

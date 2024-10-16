@@ -1,9 +1,6 @@
 import socket
 import threading
 
-HOST = '127.0.0.1'
-PORT = 12345
-MAX_BUYERS = 10
 
 class AuctioneerServer:
     def __init__(self, host='127.0.0.1', port=12345):
@@ -14,8 +11,9 @@ class AuctioneerServer:
         self.seller_conn = None
         self.buyers = []
         self.bids = {}
+        self.ongoing = False
         self.auction_details = None
-        self.buyer_lock = threading.Lock()
+        self.buyer_lock = threading.RLock()
 
     def start_server(self):
         self.server_socket.bind((self.host, self.port))
@@ -24,23 +22,24 @@ class AuctioneerServer:
 
         while True:
             conn, addr = self.server_socket.accept()
+            if self.ongoing:
+                conn.send(b"Auction is ongoing. Please try again later\n")
+                conn.close()
             if self.status == 0:
                 if not self.auction_details:
                     print(f"New Seller is connected from {addr[0]}:{addr[1]}")
                     threading.Thread(target=self.handle_seller, args=(conn, addr)).start()
                 else:
-                    conn.sendall(b"Server is busy. Try to connect again later.\n")
+                    conn.sendall(b"Server is busy. Try to connect again later\n")
                     conn.close()
             elif self.status == 1:
                 if not self.auction_details:
-                    conn.sendall(b"Server is busy. Try to connect again later.\n")
+                    conn.sendall(b"Seller is busy. Try to connect again later\n")
                     conn.close()
                 else:
-                    print(f"New Buyer is connected from {addr[0]}:{addr[1]}")
                     threading.Thread(target=self.handle_buyer, args=(conn, addr)).start()              
 
     def handle_seller(self, conn, addr):
-        
         print(">> New Seller Thread spawned")
         self.seller_conn = conn
         conn.sendall(b"Your role is: [Seller]\nPlease submit auction request:\n")
@@ -57,7 +56,7 @@ class AuctioneerServer:
                 
                 auc_type, auc_min_price, max_bids, item_name = auction_details
 
-                if (auc_type.isdigit() and auc_min_price.isdigit() and max_bids.isdigit() and int(auc_type) <= 2 and int(auc_type) >= 0):
+                if (auc_type.isdigit() and auc_min_price.isdigit() and max_bids.isdigit() and int(auc_type) <= 2 and int(auc_type) > 0):
                     self.auction_details = {
                         'auc_type': int(auc_type),
                         'auc_min_price': int(auc_min_price),
@@ -74,11 +73,10 @@ class AuctioneerServer:
             except Exception as e:
                 conn.sendall(b"Server: Invalid auction request!\n")
                 continue
-        
                 
 
 
-    def handle_buyer(self, conn, addr):
+    def handle_buyer(self, conn, addr):    
         print(">> New Buyer Thread spawned")
         conn.sendall(b"Your role is: [Buyer]\n")
 
@@ -87,24 +85,24 @@ class AuctioneerServer:
                 buyer_number = len(self.buyers) + 1
                 buyer_id = f"Buyer {buyer_number}"
                 self.buyers.append((conn, buyer_id))
-                print(self.buyers)
+                
+                print(f"Buyer {buyer_id} is connected from {addr[0]}:{addr[1]}")
             
-                if len(self.buyers) == self.auction_details['max_bids']:
-                    for conn, _, in self.buyers:
-                        conn.sendall(b"Requested number of bidders arrived. Let's start bidding!\n")
-                    print("Requested number of bidders arrived. Let's start bidding!")
-                    self.start_bidding()
-                else:
-                    conn.sendall(b"The Auctioneer is still waiting for other Buyer to connect...\n")
-                    print(f"Buyer len = {len(self.buyers)}")
-            else:
-                conn.sendall(b"Server is busy. Try to connect again later.\n")
-                print(f"Buyer len = {len(self.buyers)}")
-                conn.close()
+                should_start_bidding = len(self.buyers) == self.auction_details['max_bids']
+                  
+        if should_start_bidding:
+            for conn, _, in self.buyers:
+                conn.sendall(b"Requested number of bidders arrived. Let's start bidding!\n")
+            self.seller_conn.sendall(b"Requested number of bidders arrived. Let's start bidding!\n")
+            print("Requested number of bidders arrived. Let's start bidding!")
+            self.ongoing = True
+            self.start_bidding()
+        else:
+            conn.sendall(b"The Auctioneer is still waiting for other Buyer to connect...\n")
+            print(f"Buyer len = {len(self.buyers)}")
 
 
     def start_bidding(self):
-
         threads = []
         for conn, buyer_id in self.buyers:
             thread = threading.Thread(target=self.receive_bid, args=(conn, buyer_id))
@@ -124,6 +122,9 @@ class AuctioneerServer:
             if data:
                 try:
                     bid_amount = int(data)
+                    if bid_amount < 0:
+                        conn.sendall(b"Server: Invalid bid. Please submit a positive integer")
+                        continue
                     print(f"bid: {bid_amount}")
                     with self.buyer_lock:
                         print("Lock acquired")
@@ -133,7 +134,6 @@ class AuctioneerServer:
                         break
                 except ValueError:
                     conn.sendall(b"Invalid bid.\n")
-
 
     def determine_winner(self):
         with self.buyer_lock:
@@ -155,6 +155,8 @@ class AuctioneerServer:
         winner_conn.sendall(f"You won this item {self.auction_details['item_name']}. Your payment due is ${price}".encode())
         self.seller_conn.sendall(f"Success! Your item {self.auction_details['item_name']} has been sold for ${price}".encode())
 
+        print(f"The item was sold to {winner_id} for ${price}")
+
         for conn, buyer_id in self.buyers:
             if buyer_id != winner_id:
                 conn.sendall(b"Unfortunately, you did not win in the last round.\n")
@@ -172,12 +174,15 @@ class AuctioneerServer:
     def reset_server(self):
         self.status = 0
         self.auction_details = None
+        self.ongoing = False
 
         if self.seller_conn:
             self.seller_conn.close()
+            print("Conn closed with seller")
         self.seller_conn = None
-        for conn, _ in self.buyers:
+        for conn, buyer_id in self.buyers:
             conn.close()
+            print(f"Conn closed with {buyer_id}")
         with self.buyer_lock:
             self.buyers.clear()
             self.bids.clear()
