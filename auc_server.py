@@ -1,9 +1,9 @@
 import socket
 import threading
-
+import argparse
 
 class AuctioneerServer:
-    def __init__(self, host='127.0.0.1', port=12345):
+    def __init__(self, host, port):
         self.host = host    # Server IP address
         self.port = port    # Server port number
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create TCP socket
@@ -189,5 +189,18 @@ class AuctioneerServer:
 
 
 if __name__ == "__main__":
-    server = AuctioneerServer()
-    server.start_server()
+
+    try:
+        parser = argparse.ArgumentParser(description="Add host IP address and host port")
+        parser.add_argument('host', type=str, help="The host IP address")
+        parser.add_argument('port', type=int, help="The host IP address")
+
+        args = parser.parse_args()
+
+        host = args.host
+        port = args.port
+
+        server = AuctioneerServer(host, port)
+        server.start_server()
+    except Exception as e:
+        print(f"Error: {e}")
