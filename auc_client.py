@@ -1,8 +1,7 @@
 import socket
 import threading
+import argparse
 
-HOST = '127.0.0.1'  # Server's hostname or IP address
-PORT = 12345        # Port used by the server
 
 def handle_server_messages(sock):
     """ Continuously listen for messages from the server """
@@ -53,6 +52,15 @@ def buyer_client(sock):
 
     
 def main():
+
+    parser = argparse.ArgumentParser(description="Add host IP address and host port")
+    parser.add_argument('host', type=str, help="The host IP address")
+    parser.add_argument('port', type=int, help="The host IP address")
+
+    args = parser.parse_args()
+
+    HOST = args.host
+    PORT = args.port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         print(f"Connecting to server at {HOST}:{PORT}...")
         sock.connect((HOST, PORT))
