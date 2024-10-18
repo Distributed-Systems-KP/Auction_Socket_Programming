@@ -82,7 +82,7 @@ class AuctioneerServer:
                 
                 auc_type, auc_min_price, max_bids, item_name = auction_details
 
-                if (auc_type.isdigit() and auc_min_price.isdigit() and max_bids.isdigit() and int(auc_type) <= 2 and int(auc_type) > 0):
+                if (auc_type.isdigit() and auc_min_price.isdigit() and max_bids.isdigit() and (int(auc_type) in [1,2]) and len(str(item_name)) < 255):
                     # Store validated details in the dictionary
                     self.auction_details = {
                         'auc_type': int(auc_type),  # Type 1 or 2
@@ -129,7 +129,6 @@ class AuctioneerServer:
             bidding_thread.start()  
         else:
             conn.sendall(b"Server: The Auctioneer is still waiting for other Buyer to connect...\n")    # Notify the buyer that the server is waiting for other buyers to connect
-            print(f"Buyer len = {len(self.buyers)}")
 
 
     def start_bidding(self):
