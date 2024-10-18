@@ -125,31 +125,23 @@ class AuctioneerServer:
                 should_start_bidding = len(self.buyers) == self.auction_details['max_bids']     # Check if max buyers reached
                   
         if should_start_bidding:
-            self.start_bidding()    # Starting the bidding process
+            self.ongoing = True
+            for conn, _, in self.buyers:
+                conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify buyers that server has started bidding process
+            self.seller_conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify seller that server has started bidding process
+            print("Requested number of bidders arrived. Let's start bidding!")
+            bidding_thread = threading.Thread(target=self.start_bidding)
+            bidding_thread.start()  
         else:
             conn.sendall(b"Server: The Auctioneer is still waiting for other Buyer to connect...\n")    # Notify the buyer that the server is waiting for other buyers to connect
             print(f"Buyer len = {len(self.buyers)}")
 
 
     def start_bidding(self):
-        """
-        Initiates the bidding process once all buyers are connected.
-
-        Notifies buyers and seller that bidding has started and manages bid collection
-        """
-        self.ongoing = True
-        for conn, _, in self.buyers:
-            conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify buyers that server has started bidding process
-        self.seller_conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify seller that server has started bidding process
-        print("Requested number of bidders arrived. Let's start bidding!")      # Server log
-        
-        bidding_thread = threading.Thread(target=self.manage_bidding)
-        bidding_thread.start()
-        
-    def manage_bidding(self):
-        # Starts bidding by launching threads for each buyer to receive bids concurrently 
 
         print(">>New Bidding Thread spawned")
+        
+        # Starts bidding by launching threads for each buyer to receive bids concurrently 
         threads = []
         for conn, buyer_id in self.buyers:
             thread = threading.Thread(target=self.receive_bid, args=(conn, buyer_id))
@@ -160,6 +152,7 @@ class AuctioneerServer:
             thread.join()   # Waiting for all bid-receiving threads to complete
         
         self.determine_winner() # Determine winner after all bids are received
+
 
     def receive_bid(self, conn, buyer_id):
         """
@@ -178,7 +171,7 @@ class AuctioneerServer:
                 try:
                     bid_amount = int(data)
                     if bid_amount < 0:
-                        conn.sendall(b"Server: Invalid bid. Please submit a positive integer")
+                        conn.sendall(b"Server: Invalid bid. Please submit a positive integer\n")
                         continue
                     with self.buyer_lock:   # Acquire lock to safely update bids dictionary
                         self.bids[buyer_id] = bid_amount

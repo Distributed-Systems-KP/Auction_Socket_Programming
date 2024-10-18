@@ -60,11 +60,11 @@ def buyer_client(sock):
             # Receive messages from the server
             message = sock.recv(1024).decode()
             if message:
-                print(f"{message}")
+                print(f"{message}", end="")
 
             # If the server requests a bid, the buyer submits one    
             if "Please submit your bid" in message:
-                bid_amount = input("Enter bid:")
+                bid_amount = input()
                 sock.sendall(bid_amount.encode())
         except Exception as e:
             print(f"Error receiving message from server: {e}")
