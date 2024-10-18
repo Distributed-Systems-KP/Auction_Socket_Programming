@@ -49,7 +49,7 @@ class AuctioneerServer:
                 threading.Thread(target=self.handle_seller, args=(conn, addr)).start()      # Handling seller in a new thread
             elif self.status == 1:  # Waiting for buyers
                 if not self.auction_details:    # If buyer connects when seller has not submitted auction request yet
-                    conn.sendall(b"Server: Seller is busy. Try to connect again later\n")
+                    conn.sendall(b"Server: Waiting for seller. Try to connect again later\n")
                     conn.close()
                 else:
                     threading.Thread(target=self.handle_buyer, args=(conn, addr)).start()   # Handle buyer in a new thread       
