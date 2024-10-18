@@ -60,7 +60,7 @@ def buyer_client(sock):
             # Receive messages from the server
             message = sock.recv(1024).decode()
             if message:
-                print(f"{message}", end="")
+                print(f"{message}")
 
             # If the server requests a bid, the buyer submits one    
             if "Please submit your bid" in message:

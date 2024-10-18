@@ -125,11 +125,6 @@ class AuctioneerServer:
                 should_start_bidding = len(self.buyers) == self.auction_details['max_bids']     # Check if max buyers reached
                   
         if should_start_bidding:
-            self.ongoing = True
-            for conn, _, in self.buyers:
-                conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify buyers that server has started bidding process
-            self.seller_conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify seller that server has started bidding process
-            print("Requested number of bidders arrived. Let's start bidding!")
             bidding_thread = threading.Thread(target=self.start_bidding)
             bidding_thread.start()  
         else:
@@ -138,10 +133,18 @@ class AuctioneerServer:
 
 
     def start_bidding(self):
-
-        print(">>New Bidding Thread spawned")
+        """
+        Initiates the bidding process by launching separate threads 
+        for each buyer to receive bids concurrently 
+        """
+        print(">> New Bidding Thread spawned")
         
-        # Starts bidding by launching threads for each buyer to receive bids concurrently 
+        self.ongoing = True # Set the on-going flag to true so that main thread can reject new client connections
+        for conn, _, in self.buyers:
+            conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify buyers that server has started bidding process
+        self.seller_conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify seller that server has started bidding process
+        print("Requested number of bidders arrived. Let's start bidding!")
+        
         threads = []
         for conn, buyer_id in self.buyers:
             thread = threading.Thread(target=self.receive_bid, args=(conn, buyer_id))
@@ -177,7 +180,7 @@ class AuctioneerServer:
                         self.bids[buyer_id] = bid_amount
                         print(f"{buyer_id} bid ${bid_amount}")
                         conn.sendall(b"Server: Bid received. Please wait...\n")
-                        break
+                    break
                 except ValueError:  # Handle non-integer inputs, notifying client of invalid bid format
                     conn.sendall(b"Server: Invalid bid. Try again.\n")
                     continue
@@ -215,7 +218,7 @@ class AuctioneerServer:
         
         """
         winner_conn = next(conn for conn, buyer_id in self.buyers if buyer_id == winner_id) # Find connection object of winning bidder
-
+        
         winner_conn.sendall(f"You won this item {self.auction_details['item_name']}. Your payment due is ${price}".encode())    # Notify winner
         self.seller_conn.sendall(f"Success! Your item {self.auction_details['item_name']} has been sold for ${price}".encode()) # Notify seller
 
