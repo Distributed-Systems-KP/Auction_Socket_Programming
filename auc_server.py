@@ -6,6 +6,13 @@ import argparse
 
 class AuctioneerServer:
     def __init__(self, host, port):
+        """
+        Initializes the Auctioneer server with the specified host and port.
+
+        Parameters:
+        - host (str): The IP address of the server
+        - port (int): The port number for the server
+        """
         self.host = host    # Server IP address
         self.port = port    # Server port number
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create TCP socket
@@ -18,6 +25,14 @@ class AuctioneerServer:
         self.buyer_lock = threading.RLock()     # Reentrant lock for synchronizing access to buyers
 
     def start_server(self):
+        
+        """
+        Starts the server to listen for incoming connections from
+        seller and buyers
+
+        Handles collection in separate threads for seller and buyers.
+        """
+
         # Bind server socket and start listening for connections
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen()
@@ -26,22 +41,34 @@ class AuctioneerServer:
         while True:
             conn, addr = self.server_socket.accept()
             if self.ongoing:
-                conn.send(b"Auction is ongoing. Please try again later\n")
+                conn.send(b"Server: Auction is ongoing. Please try again later\n")
                 conn.close()
+                continue
             if self.status == 0:    # Waiting for seller
                 print(f"New Seller is connected from {addr[0]}:{addr[1]}")
                 threading.Thread(target=self.handle_seller, args=(conn, addr)).start()      # Handling seller in a new thread
             elif self.status == 1:  # Waiting for buyers
                 if not self.auction_details:    # If buyer connects when seller has not submitted auction request yet
-                    conn.sendall(b"Seller is busy. Try to connect again later\n")
+                    conn.sendall(b"Server: Seller is busy. Try to connect again later\n")
                     conn.close()
                 else:
                     threading.Thread(target=self.handle_buyer, args=(conn, addr)).start()   # Handle buyer in a new thread       
 
     def handle_seller(self, conn, addr):
+        """
+        Handles communication with the seller.
+
+        Receives auction details from the seller and updates server status.
+
+
+        Parameters:
+        - conn: Connection object for the seller.
+        - addr: Address of the seller.
+        """
+        
         print(">> New Seller Thread spawned")   # Server log
         self.seller_conn = conn
-        conn.sendall(b"Your role is: [Seller]\nPlease submit auction request:\n")   # Assigning role to the client
+        conn.sendall(b"Server: Your role is: [Seller]\nPlease submit auction request:\n")   # Assigning role to the client
         self.status = 1     # Setting status to 1 so that the new clients can join as buyers
 
         while True:
@@ -55,7 +82,7 @@ class AuctioneerServer:
                 
                 auc_type, auc_min_price, max_bids, item_name = auction_details
 
-                if (auc_type.isdigit() and auc_min_price.isdigit() and max_bids.isdigit() and int(auc_type) <= 2 and int(auc_type) > 0):
+                if (auc_type.isdigit() and auc_min_price.isdigit() and max_bids.isdigit() and (int(auc_type) in [1,2]) and len(str(item_name)) < 255):
                     # Store validated details in the dictionary
                     self.auction_details = {
                         'auc_type': int(auc_type),  # Type 1 or 2
@@ -63,9 +90,7 @@ class AuctioneerServer:
                         'max_bids': int(max_bids),      # Maximum number of bids allowed
                         'item_name': str(item_name)     # Name of the item being auctioned
                     }     
-                    print(self.auction_details) 
-                    print("Action request received. Now waiting for Buyer")
-                                  
+                    print("Action request received. Now waiting for Buyer")   
                     break
                 else:
                     raise Exception()
@@ -76,9 +101,18 @@ class AuctioneerServer:
                 
 
 
-    def handle_buyer(self, conn, addr):    
+    def handle_buyer(self, conn, addr): 
+        """
+        Handles communication with a buyer.
+
+        Manages buyer connections and starts bidding when enough buyers are connected.
+
+        Parameters:
+        - conn: Connection object for the buyers
+        - addr: Address of the buyer
+        """
         print(">> New Buyer Thread spawned")    # Server log
-        conn.sendall(b"Your role is: [Buyer]\n")    # Assigning role Buyer to client
+        conn.sendall(b"Server: Your role is: [Buyer]\n")    # Assigning role Buyer to client
 
         with self.buyer_lock:   # Acquire lock to safely modify buyers list
             if len(self.buyers) < self.auction_details['max_bids']:
@@ -91,19 +125,25 @@ class AuctioneerServer:
                 should_start_bidding = len(self.buyers) == self.auction_details['max_bids']     # Check if max buyers reached
                   
         if should_start_bidding:
-            self.start_bidding()    # Starting the bidding process
+            bidding_thread = threading.Thread(target=self.start_bidding)
+            bidding_thread.start()  
         else:
-            conn.sendall(b"The Auctioneer is still waiting for other Buyer to connect...\n")    # Notify the buyer that the server is waiting for other buyers to connect
-            print(f"Buyer len = {len(self.buyers)}")
+            conn.sendall(b"Server: The Auctioneer is still waiting for other Buyer to connect...\n")    # Notify the buyer that the server is waiting for other buyers to connect
 
 
     def start_bidding(self):
+        """
+        Initiates the bidding process by launching separate threads 
+        for each buyer to receive bids concurrently 
+        """
+        print(">> New Bidding Thread spawned")
+        
+        self.ongoing = True # Set the on-going flag to true so that main thread can reject new client connections
         for conn, _, in self.buyers:
-            conn.sendall(b"Requested number of bidders arrived. Let's start bidding!\n")    # Notify buyers that server has started bidding process
-        self.seller_conn.sendall(b"Requested number of bidders arrived. Let's start bidding!\n")    # Notify seller that server has started bidding process
-        print("Requested number of bidders arrived. Let's start bidding!")      # Server log
-        self.ongoing = True
-
+            conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify buyers that server has started bidding process
+        self.seller_conn.sendall(b"Server: Requested number of bidders arrived. Let's start bidding!\n")    # Notify seller that server has started bidding process
+        print("Requested number of bidders arrived. Let's start bidding!")
+        
         threads = []
         for conn, buyer_id in self.buyers:
             thread = threading.Thread(target=self.receive_bid, args=(conn, buyer_id))
@@ -111,81 +151,117 @@ class AuctioneerServer:
             thread.start()
         
         for thread in threads:
-            thread.join()
+            thread.join()   # Waiting for all bid-receiving threads to complete
         
-        self.determine_winner()
-    
+        self.determine_winner() # Determine winner after all bids are received
+
 
     def receive_bid(self, conn, buyer_id):
+        """
+        Receives bids from a buyer.
+
+            Validates bid amount and stores them in a dictionary
+
+        Parameters:
+        - conn: Connection object for the buyer
+        - buyer_id: Identifier for the buyer
+        """
         while True:
-            conn.sendall(b"Please submit your bid:")
+            conn.sendall(b"Server: Please submit your bid:")
             data = conn.recv(1024).decode()
             if data:
                 try:
                     bid_amount = int(data)
                     if bid_amount < 0:
-                        conn.sendall(b"Server: Invalid bid. Please submit a positive integer")
+                        conn.sendall(b"Server: Invalid bid. Please submit a positive integer\n")
                         continue
-                    print(f"bid: {bid_amount}")
-                    with self.buyer_lock:
-                        print("Lock acquired")
+                    with self.buyer_lock:   # Acquire lock to safely update bids dictionary
                         self.bids[buyer_id] = bid_amount
                         print(f"{buyer_id} bid ${bid_amount}")
-                        conn.sendall(b"Bid receive. Please wait...\n")
-                        break
-                except ValueError:
-                    conn.sendall(b"Invalid bid.\n")
+                        conn.sendall(b"Server: Bid received. Please wait...\n")
+                    break
+                except ValueError:  # Handle non-integer inputs, notifying client of invalid bid format
+                    conn.sendall(b"Server: Invalid bid. Try again.\n")
+                    continue
 
     def determine_winner(self):
+        """
+        Determines the winner based on the type of auction and bids received
+
+        Notifies the winner and other participants of the auction results
+        
+        """
         with self.buyer_lock:
-            highest_bidder_id = max(self.bids, key=self.bids.get)
+            highest_bidder_id = max(self.bids, key=self.bids.get)   # Identify highest bidder based on bid amounts
             highest_bid = self.bids[highest_bidder_id]
 
-            if highest_bid >= self.auction_details['auc_min_price']:
-                if self.auction_details['auc_type'] == 1:
+            if highest_bid >= self.auction_details['auc_min_price']:    # Check if highest bid meets minimum price requirement
+                if self.auction_details['auc_type'] == 1:   # First auction type
                     self.notify_winner(highest_bidder_id, highest_bid)
-                elif self.auction_details['auc_type'] == 2:
+                elif self.auction_details['auc_type'] == 2: # Second auction type
                     second_highest_bid = sorted(self.bids.values(), reverse=True)[1]
                     self.notify_winner(highest_bidder_id, second_highest_bid)
             else:
                 self.notify_no_sale()
 
     def notify_winner(self, winner_id, price):
-        winner_conn = next(conn for conn, buyer_id in self.buyers if buyer_id == winner_id)
+        """
+        Notifies the winner of their successful bid and informs other buyers 
+        of their loss
 
-        winner_conn.sendall(f"You won this item {self.auction_details['item_name']}. Your payment due is ${price}".encode())
-        self.seller_conn.sendall(f"Success! Your item {self.auction_details['item_name']} has been sold for ${price}".encode())
+        Resets server state after notification
+
+        Parameters:
+        - winner_id: Identifier of the winning buyer
+        - price: Winning bid amount
+        
+        """
+        winner_conn = next(conn for conn, buyer_id in self.buyers if buyer_id == winner_id) # Find connection object of winning bidder
+        
+        winner_conn.sendall(f"You won this item {self.auction_details['item_name']}. Your payment due is ${price}".encode())    # Notify winner
+        self.seller_conn.sendall(f"Success! Your item {self.auction_details['item_name']} has been sold for ${price}".encode()) # Notify seller
 
         print(f"The item was sold to {winner_id} for ${price}")
 
-        for conn, buyer_id in self.buyers:
+        for conn, buyer_id in self.buyers:  # Notify losing bidders about their unsuccessful attempts
             if buyer_id != winner_id:
-                conn.sendall(b"Unfortunately, you did not win in the last round.\n")
+                conn.sendall(b"Server: Unfortunately, you did not win in the last round.\n")
         
-        self.reset_server()
+        self.reset_server()     # Reset server state
 
     def notify_no_sale(self):
+        """
+        Notifies participants if no sale occured
+
+        Resets server after notification
+        """
         for conn, _ in self.buyers:
-            conn.sendall(b"The item was not sold.\n")
+            conn.sendall(b"Server: The item was not sold.\n")
         
         print("The item was not sold")
         self.reset_server()
     
 
     def reset_server(self):
-        self.status = 0
-        self.auction_details = None
-        self.ongoing = False
+        """
+        Resets server state after an auction concludes.
+        
+        Closes all connections and clears store data to prepare for a 
+        new auction session.
+        """
+        self.status = 0     # Reset status to initial state (Waiting for seller)
+        self.auction_details = None # Cleared stored auction details
+        self.ongoing = False    # Reset ongoing flag
 
-        if self.seller_conn:
+        if self.seller_conn:    # Closing connection with seller
             self.seller_conn.close()
-            print("Conn closed with seller")
-        self.seller_conn = None
-        for conn, buyer_id in self.buyers:
+            print("Connection closed with seller")
+        self.seller_conn = None # Clearing stored seller connection object
+        for conn, buyer_id in self.buyers:  # Closing connections with all buyers
             conn.close()
-            print(f"Conn closed with {buyer_id}")
-        with self.buyer_lock:
-            self.buyers.clear()
+            print(f"Connection closed with {buyer_id}")
+        with self.buyer_lock:   # Clear buyers list and bids dictionary safely with the lock
+            self.buyers.clear() 
             self.bids.clear()
         
 
@@ -193,16 +269,17 @@ class AuctioneerServer:
 if __name__ == "__main__":
 
     try:
+        # Parsing user input (host IP address and port)
         parser = argparse.ArgumentParser(description="Add host IP address and host port")
         parser.add_argument('host', type=str, help="The host IP address")
-        parser.add_argument('port', type=int, help="The host IP address")
+        parser.add_argument('port', type=int, help="The host port")
 
         args = parser.parse_args()
 
         host = args.host
         port = args.port
 
-        server = AuctioneerServer(host, port)
-        server.start_server()
+        server = AuctioneerServer(host, port)  # Creating instance of the Auctioneer Server
+        server.start_server()   # Starting the server
     except Exception as e:
         print(f"Error: {e}")
