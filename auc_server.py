@@ -272,7 +272,7 @@ if __name__ == "__main__":
         # Parsing user input (host IP address and port)
         parser = argparse.ArgumentParser(description="Add host IP address and host port")
         parser.add_argument('host', type=str, help="The host IP address")
-        parser.add_argument('port', type=int, help="The host IP address")
+        parser.add_argument('port', type=int, help="The host port")
 
         args = parser.parse_args()
 

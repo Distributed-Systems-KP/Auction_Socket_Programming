@@ -99,7 +99,7 @@ def seller_client(sock):
 
     # Keeping the main thread alive to continue listening for server messages
     
-def buyer_client(sock):
+def buyer_client(sock, rdtport):
     '''Handles buyer side logic.
     The buyer receives info from server and 
     submits bids when prompted.'''
@@ -115,11 +115,32 @@ def buyer_client(sock):
             if "Please submit your bid" in message:
                 bid_amount = input("Enter bid:")
                 sock.sendall(bid_amount.encode())
+            if "Seller IP:" in message:
+                seller_ip = message.split(':')[0]
+                handle_file_receive(seller_ip, rdtport)
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
 
-def connect_to_server(host, port):
+def open_udp_socket(rdtport):
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.bind(('eth0', rdtport))
+    print("UDP socket opened for RDT")
+    return udp_socket
+
+
+def handle_file_receive(seller_ip, rdtport):
+    udp_socket = open_udp_socket(rdtport)
+    data, client_address = udp_socket.recvfrom(2000)
+    
+    
+    
+def handle_find_send(buyer_ip, rdtport):
+    udp_socket = open_udp_socket(rdtport)
+    data, client_address = udp_socket.recvfrom(2000)
+        
+
+def connect_to_server(host, port, rdtport):
     '''Establishes a connection to the auction server.
     Based on the role assigned by the server (Seller or Buyer),
     it calls the appropriate client logic.'''
@@ -134,9 +155,9 @@ def connect_to_server(host, port):
         
         # decides the role based on the initial message from the server and invokes the logic
         if "[Seller]" in initial_message:
-            seller_client(sock)
+            seller_client(sock, rdtport)
         elif "[Buyer]" in initial_message:
-            buyer_client(sock)
+            buyer_client(sock, rdtport)
         else:
             print("Unexpected role message from server.")
     
@@ -147,14 +168,16 @@ def main():
     initiates the connection to the server.'''
 
     # Parses command line args for port and host
-    parser = argparse.ArgumentParser(description="Add host IP address and host port")
-    parser.add_argument('host', type=str, help="The host IP address")
-    parser.add_argument('port', type=int, help="The host IP address")
+    parser = argparse.ArgumentParser(description="Add server IP address and server port")
+    parser.add_argument('host', type=str, help="The server IP address")
+    parser.add_argument('port', type=int, help="The server port")
+    parser.add_argument('rdtport', type=int, help="The host rdtport")
 
     args = parser.parse_args()
 
     # Connect to the auction server with the provided host and port
-    connect_to_server(args.host, args.port)
+    connect_to_server(args.host, args.port, args.rdtport)
+
 
 if __name__ == "__main__":
     main()
