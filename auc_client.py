@@ -73,7 +73,7 @@ def send_auction_request(sock):
             print("Invalid Request, Please try again!")
 
 
-def seller_client(sock):
+def seller_client(sock, rdtport):
     '''This handles seller side logic. The seller sends
     auction details and waits for the further messages from
     the server'''
@@ -85,11 +85,13 @@ def seller_client(sock):
             message = sock.recv(1024).decode()
             if message:
                 print(f"{message}")
-
             # If the server requests a bid, the buyer submits one    
             if "Server: Invalid auction request!" in message:
                 send_auction_request(sock)
                 continue
+            if "Buyer's IP:" in message:
+                buyer_ip = message.split(':')[1]
+                handle_file_send(buyer_ip, rdtport)
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
@@ -115,8 +117,8 @@ def buyer_client(sock, rdtport):
             if "Please submit your bid" in message:
                 bid_amount = input("Enter bid:")
                 sock.sendall(bid_amount.encode())
-            if "Seller IP:" in message:
-                seller_ip = message.split(':')[0]
+            if "Seller's IP:" in message:
+                seller_ip = message.split(':')[1]
                 handle_file_receive(seller_ip, rdtport)
         except Exception as e:
             print(f"Error receiving message from server: {e}")
@@ -130,12 +132,14 @@ def open_udp_socket(rdtport):
 
 
 def handle_file_receive(seller_ip, rdtport):
-    udp_socket = open_udp_socket(rdtport)
-    data, client_address = udp_socket.recvfrom(2000)
+    # udp_socket = open_udp_socket(rdtport)
+    # data, client_address = udp_socket.recvfrom(2000)
+    print('Handle file receive function called')
     
-def handle_find_send(buyer_ip, rdtport):
-    udp_socket = open_udp_socket(rdtport)
-    data, client_address = udp_socket.recvfrom(2000)
+def handle_file_send(buyer_ip, rdtport):
+    # udp_socket = open_udp_socket(rdtport)
+    # data, client_address = udp_socket.recvfrom(2000)
+    print('Handle file send function called')
         
 def connect_to_server(host, port, rdtport):
     '''Establishes a connection to the auction server.
