@@ -133,13 +133,10 @@ def handle_file_receive(seller_ip, rdtport):
     udp_socket = open_udp_socket(rdtport)
     data, client_address = udp_socket.recvfrom(2000)
     
-    
-    
 def handle_find_send(buyer_ip, rdtport):
     udp_socket = open_udp_socket(rdtport)
     data, client_address = udp_socket.recvfrom(2000)
         
-
 def connect_to_server(host, port, rdtport):
     '''Establishes a connection to the auction server.
     Based on the role assigned by the server (Seller or Buyer),
