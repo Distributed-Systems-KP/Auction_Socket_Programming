@@ -3,7 +3,7 @@
 import socket
 import argparse
 import json
-
+import numpy as np
 
 def handle_server_messages(sock):
     """ Continuously listen for messages from the server.
@@ -141,7 +141,7 @@ def open_udp_socket(rdtport):
     return udp_socket
 
 
-def handle_file_send(buyer_ip, rdtport):
+def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
     # Create a UDP socket and set a timeout for retransmissions
     rdtport=8081
     udp_socket = open_udp_socket(rdtport)
@@ -169,6 +169,10 @@ def handle_file_send(buyer_ip, rdtport):
             # Wait for acknowledgment for the start message
             try:
                 message, addr = udp_socket.recvfrom(1024)
+                ## simulating the packet loss
+                if np.random.binomial(1, packet_loss_rate) == 1:
+                    print("trying packet loss")
+                    return ## returning early to simulate packet loss
                 message = json.loads(message.decode())
                 if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
                     print("Start message acknowledged by winning buyer.")
@@ -199,6 +203,9 @@ def handle_file_send(buyer_ip, rdtport):
                     try:
                         # Wait for an acknowledgment
                         message, addr = udp_socket.recvfrom(1024)
+                        if np.random.binomial(1, packet_loss_rate) == 1:
+                            print("Simulated packet loss for data packet acknowledgment.")
+                            continue  ## skipping the further processing
                         message = json.loads(message.decode())
                         if addr[0] == buyer_ip and message['SEQ/ACK'] == seq_num and message['TYPE'] == 0:
                             print(f"Received valid ACK for sequence {seq_num}")
@@ -229,7 +236,7 @@ def handle_file_send(buyer_ip, rdtport):
         print("UDP socket closed.")
 
     
-def handle_file_receive(seller_ip, rdtport):
+def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
     print('Handle file send function called')
     # seller_ip='127.0.0.1'
     rdtport=8082
@@ -243,6 +250,10 @@ def handle_file_receive(seller_ip, rdtport):
     try:
         while True:
             message, addr = udp_socket.recvfrom(4096)
+            if np.random.binomial(1, packet_loss_rate) == 1:
+                print("Simulated packet loss for incoming packet.")
+                continue  # Simulate packet loss by discarding the message
+
             message = json.loads(message.decode())
 
             if addr[0] != seller_ip:
