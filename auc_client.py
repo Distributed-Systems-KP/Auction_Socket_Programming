@@ -141,7 +141,7 @@ def open_udp_socket(rdtport):
     return udp_socket
 
 
-def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
+def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.1):
     # Create a UDP socket and set a timeout for retransmissions
     rdtport=8081
     udp_socket = open_udp_socket(rdtport)
@@ -223,7 +223,22 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
             'SEQ/ACK': seq_num,
             'DATA': 'fin'
         }
-        udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, 8082))
+
+        while True:
+            udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, 8082))
+            try:
+                message, addr = udp_socket.recvfrom(1024)
+                if np.random.binomial(1, packet_loss_rate) == 1:
+                    print("Simulated packet loss for data packet acknowledgment.")
+                    continue  ## skipping the further processing
+                message = json.loads(message.decode())
+                if addr[0] == buyer_ip and message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and 'fin/ac' in message['DATA']:
+                    print(f"Received valid FIN/ACK for sequence {seq_num}")
+                    break
+            except Exception as e:
+                print(f"Error: {e}")
+
+
         print("End-of-transmission signal sent.")
         print("File transmission completed.")
 
@@ -274,6 +289,12 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     print(f"Send ACK for start message: {ack_message}")
             
                 elif 'fin' in message['DATA']:
+                    fin_ack_message = {
+                        'TYPE': 0,
+                        'SEQ/ACK': expected_seq_num,
+                        'DATA': "fin/ack"
+                    }
+                    udp_socket.sendto(json.dumps(fin_ack_message).encode(), addr)
                     print("Received end of transmission signal")
                     break
             
@@ -302,6 +323,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                 else:
                     print(f"Received out of order packet with sequence number {seq_num}. Discarding.")
         
+
+
         with open('received.file', 'wb') as file:
             file.write(file_data)
         print("File received and saved as 'received.file'")
