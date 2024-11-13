@@ -5,19 +5,19 @@ import argparse
 import json
 import numpy as np
 
-def handle_server_messages(sock):
-    """ Continuously listen for messages from the server.
-    This function runs on a separate thread and is responsible for receiving and displaying 
-    messages from the server. """
+# def handle_server_messages(sock):
+#     """ Continuously listen for messages from the server.
+#     This function runs on a separate thread and is responsible for receiving and displaying 
+#     messages from the server. """
 
-    while True:
-        try:
-            message = sock.recv(1024).decode()
-            if message:
-                print(f"{message}")
-        except Exception as e:
-            print(f"Error receiving message from server: {e}")
-            break
+#     while True:
+#         try:
+#             message = sock.recv(1024).decode()
+#             if message:
+#                 print(f"{message}")
+#         except Exception as e:
+#             print(f"Error receiving message from server: {e}")
+#             break
 
 def validate_auction_request(auction_details):
     '''
@@ -334,8 +334,6 @@ def connect_to_server(host, port, rdtport):
         else:
             print("Unexpected role message from server.")
         
-    
-    
 def main():
     '''This establishes a connection to the auction server.
     Parses the CLI args for the host IP and port, then it 
