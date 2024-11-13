@@ -91,7 +91,8 @@ def seller_client(sock, rdtport):
                 continue
             if "Buyer's IP:" in message:
                 buyer_ip = message.split(':')[1]
-                handle_file_send(buyer_ip, rdtport)
+                handle_file_send(buyer_ip, rdtport) 
+                break
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
@@ -131,12 +132,87 @@ def open_udp_socket(rdtport):
     return udp_socket
 
 
-def handle_file_receive(seller_ip, rdtport):
-    # udp_socket = open_udp_socket(rdtport)
-    # data, client_address = udp_socket.recvfrom(2000)
+def handle_file_send(seller_ip, rdtport):
+    udp_socket = open_udp_socket(rdtport) ## creating the UDP socket
+    udp_socket.settimeout(2) ## setting 2 seconds for retransmission
+
+    seq_num = 0 ## initiated with 0 for stop and wait protocol to be followed
+    file_path = ''
+    print("UDP socket created...")
+
+    try:
+        with open(file_path, 'rb') as file:
+            file_size = len(file.read()) # to get total file size by reading through the file and reaches EOF
+            file.seek(0) # reset file pointer to start position
+
+            start_messaging = f"start {file_size}".encode()
+            udp_socket.sendto(bytes([seq_num, 0]) + start_messaging, (buyer_ip, rdtport)) # setting seq 0 and type 0 and along with that sending the size of the file 
+            ## basifcally this initialtes the transmission to be done by the seller
+            print("Sent transmission start message: { start_message.decode()}")
+
+            ## waiting for ack to start message 
+            ## the ack value should be same as the seq no. and also checking for the address of the sender( buyer)
+
+            try:
+                ack, addr = udp_socket.recvfrom(2)
+                ack_seq, ack_type = ack
+                if ack_seq == seq_num and ack_type == 0 and addr[0] == buyer_ip:
+                    print("Start message acknowledged from winning buyer")
+                else:
+                    print("Unexpected ACK or from unknown IP. Discarding.")
+                    return
+            except socket.timeout:
+                print("Timeout waiting for start message acknowledgement. Exiting")
+                return
+            
+            ## So we send the data packets if the conditions passes
+            while True:
+                data = file.read(2000) ## reading as a chunk of 2000 bytes at a time
+                if not data :
+                    print("End of file reached.")
+                    break
+
+                # Preparing the packet
+                meta_header = bytes ([seq_num, 1]) ## keeping the TYPE=1 and the seq_num as 0
+                packet = meta_header + data
+                sent = False
+
+                while not sent:
+                    # send the packet
+                    udp_socket.sendto(packet,(buyer_ip, rdtport))
+                    print(f"Sending packets with sequence numbers {seq_num}")
+
+                    try:
+                        ## Waiting for the acknowledgement 
+                        ack, addr = udp_socket.recvfrom(2)
+                        ack_seq, ack_type = ack
+                        if addr[0] == buyer_ip and ack_seq == seq_num and ack_type == 0:
+                            print(f"Received valid ACK for sequence {seq_num}")
+                            seq_num = {seq_num + 1} % 256 ## incrementing the sequence number
+                            sent = True
+                        else:
+                            print(f" Received invalid ACK or from unknown IP. Resending packet ")
+                    except socket.timeout:
+                        print(f"Timeout waiting for ACK. Resending packet with sequence {seq_num} ")
+        
+        udp_socket.sendto(bytes([seq_num, 0]) + b"fin", (buyer_ip, rdtport))
+        print("End-of-transmission signal sent")
+        print("File transmission completed")
+
+    except FileNotFoundError:
+        print(" File 'tosend.file' not found")
+    except Exception as e:
+        print(f"Unexpected error during file transfer: {e}")
+    finally:
+        udp_socket.close()dde
+        print("UDP socket closed.")
+
+
+
+
     print('Handle file receive function called')
     
-def handle_file_send(buyer_ip, rdtport):
+def handle_file_receive(buyer_ip, rdtport):
     # udp_socket = open_udp_socket(rdtport)
     # data, client_address = udp_socket.recvfrom(2000)
     print('Handle file send function called')
