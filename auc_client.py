@@ -131,88 +131,100 @@ def open_udp_socket(rdtport):
     print("UDP socket opened for RDT")
     return udp_socket
 
+import socket
+import json
 
-def handle_file_send(seller_ip, rdtport):
-    udp_socket = open_udp_socket(rdtport) ## creating the UDP socket
-    udp_socket.settimeout(2) ## setting 2 seconds for retransmission
+def handle_file_send(buyer_ip, rdtport):
+    # Create a UDP socket and set a timeout for retransmissions
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.settimeout(2)  # Set a 2-second timeout for retransmissions
+    seq_num = 0  # Initialize sequence number for Stop-and-Wait protocol
+    file_path = 'tosend.file'  # Specify the file path
 
-    seq_num = 0 ## initiated with 0 for stop and wait protocol to be followed
-    file_path = ''
     print("UDP socket created...")
 
     try:
         with open(file_path, 'rb') as file:
-            file_size = len(file.read()) # to get total file size by reading through the file and reaches EOF
-            file.seek(0) # reset file pointer to start position
+            # Calculate total file size
+            file_data = file.read()
+            file_size = len(file_data)
 
-            start_messaging = f"start {file_size}".encode()
-            udp_socket.sendto(bytes([seq_num, 0]) + start_messaging, (buyer_ip, rdtport)) # setting seq 0 and type 0 and along with that sending the size of the file 
-            ## basifcally this initialtes the transmission to be done by the seller
-            print("Sent transmission start message: { start_message.decode()}")
+            # Send a start message with the total file size (control message with TYPE=0)
+            start_message = {
+                'TYPE': 0,               # Control message type (0 indicates a control message)
+                'seq_num': seq_num,      # Initial sequence number
+                'ack_num': 0,            # Acknowledgment number (not used here)
+                'data': f'start {file_size}'  # Start message data
+            }
+            udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
+            print(f"Sent start message: {start_message}")
 
-            ## waiting for ack to start message 
-            ## the ack value should be same as the seq no. and also checking for the address of the sender( buyer)
-
+            # Wait for acknowledgment for the start message
             try:
-                ack, addr = udp_socket.recvfrom(2)
-                ack_seq, ack_type = ack
-                if ack_seq == seq_num and ack_type == 0 and addr[0] == buyer_ip:
-                    print("Start message acknowledged from winning buyer")
+                ack, addr = udp_socket.recvfrom(1024)
+                ack = json.loads(ack.decode())
+                if ack['seq_num'] == seq_num and ack['TYPE'] == 0 and addr[0] == buyer_ip:
+                    print("Start message acknowledged by winning buyer.")
                 else:
                     print("Unexpected ACK or from unknown IP. Discarding.")
                     return
             except socket.timeout:
-                print("Timeout waiting for start message acknowledgement. Exiting")
+                print("Timeout waiting for start message acknowledgment. Exiting.")
                 return
-            
-            ## So we send the data packets if the conditions passes
-            while True:
-                data = file.read(2000) ## reading as a chunk of 2000 bytes at a time
-                if not data :
-                    print("End of file reached.")
-                    break
 
-                # Preparing the packet
-                meta_header = bytes ([seq_num, 1]) ## keeping the TYPE=1 and the seq_num as 0
-                packet = meta_header + data
+            # Send file data in chunks
+            for i in range(0, file_size, 2000):
+                chunk_data = file_data[i:i + 2000]
+
+                # Prepare the data packet (TYPE=1 indicates a data packet)
+                message = {
+                    'TYPE': 1,                 # Data packet type
+                    'seq_num': seq_num,        # Sequence number for Stop-and-Wait protocol
+                    'ack_num': seq_num,        # Acknowledgment number (matches sequence number)
+                    'data': chunk_data.decode('latin-1')  # Convert binary data to string for JSON serialization
+                }
+
                 sent = False
-
                 while not sent:
-                    # send the packet
-                    udp_socket.sendto(packet,(buyer_ip, rdtport))
-                    print(f"Sending packets with sequence numbers {seq_num}")
+                    # Send the message as JSON
+                    udp_socket.sendto(json.dumps(message).encode(), (buyer_ip, rdtport))
+                    print(f"Sent packet with sequence number {seq_num}")
 
                     try:
-                        ## Waiting for the acknowledgement 
-                        ack, addr = udp_socket.recvfrom(2)
-                        ack_seq, ack_type = ack
-                        if addr[0] == buyer_ip and ack_seq == seq_num and ack_type == 0:
+                        # Wait for an acknowledgment
+                        ack, addr = udp_socket.recvfrom(1024)
+                        ack = json.loads(ack.decode())
+                        if addr[0] == buyer_ip and ack['seq_num'] == seq_num and ack['TYPE'] == 0:
                             print(f"Received valid ACK for sequence {seq_num}")
-                            seq_num = {seq_num + 1} % 256 ## incrementing the sequence number
+                            # Toggle sequence number for Stop-and-Wait (0 -> 1 or 1 -> 0)
+                            seq_num = 1 - seq_num
                             sent = True
                         else:
-                            print(f" Received invalid ACK or from unknown IP. Resending packet ")
+                            print("Received invalid ACK or from unknown IP. Resending packet.")
                     except socket.timeout:
-                        print(f"Timeout waiting for ACK. Resending packet with sequence {seq_num} ")
-        
-        udp_socket.sendto(bytes([seq_num, 0]) + b"fin", (buyer_ip, rdtport))
-        print("End-of-transmission signal sent")
-        print("File transmission completed")
+                        print(f"Timeout waiting for ACK. Resending packet with sequence {seq_num}.")
+
+        # Send end-of-transmission control message (TYPE=0)
+        end_message = {
+            'TYPE': 0,
+            'seq_num': seq_num,
+            'ack_num': 0,
+            'data': 'fin'
+        }
+        udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, rdtport))
+        print("End-of-transmission signal sent.")
+        print("File transmission completed.")
 
     except FileNotFoundError:
-        print(" File 'tosend.file' not found")
+        print("File 'tosend.file' not found.")
     except Exception as e:
         print(f"Unexpected error during file transfer: {e}")
     finally:
-        udp_socket.close()dde
+        udp_socket.close()
         print("UDP socket closed.")
 
-
-
-
-    print('Handle file receive function called')
     
-def handle_file_receive(buyer_ip, rdtport):
+def handle_file_receive(seller_ip, rdtport):
     # udp_socket = open_udp_socket(rdtport)
     # data, client_address = udp_socket.recvfrom(2000)
     print('Handle file send function called')
