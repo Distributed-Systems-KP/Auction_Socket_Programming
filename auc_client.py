@@ -221,6 +221,7 @@ def handle_file_send(buyer_ip, rdtport):
         print(f"Unexpected error during file transfer: {e}")
     finally:
         udp_socket.close()
+        udp_socket.close()
         print("UDP socket closed.")
 
     
