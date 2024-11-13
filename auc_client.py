@@ -1,8 +1,8 @@
 ''' NAMES: KABIR SINGH BHATIA(kbhatia), PRABHUDATTA MISHRA (pmishra4)
     DATE: 16th October, 2024'''
 import socket
-import threading
 import argparse
+import json
 
 
 def handle_server_messages(sock):
@@ -79,6 +79,7 @@ def seller_client(sock, rdtport):
     the server'''
 
     send_auction_request(sock)
+    buyer_ip = None
     while True:
         try:
             # Receive messages from the server
@@ -90,12 +91,13 @@ def seller_client(sock, rdtport):
                 send_auction_request(sock)
                 continue
             if "Buyer's IP:" in message:
-                buyer_ip = message.split(':')[1]
-                handle_file_send(buyer_ip, rdtport) 
+                buyer_ip = message.split("Buyer's IP: ")[1].strip()
+                print(buyer_ip) 
                 break
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
+    handle_file_send(buyer_ip, rdtport)
 
     # Starting a thread to handle incoming messages from the server
     #threading.Thread(target=handle_server_messages, args=(sock,), daemon=True).start()
@@ -106,7 +108,9 @@ def buyer_client(sock, rdtport):
     '''Handles buyer side logic.
     The buyer receives info from server and 
     submits bids when prompted.'''
-   
+    
+    seller_ip = None
+
     while True:
         try:
             # Receive messages from the server
@@ -119,24 +123,28 @@ def buyer_client(sock, rdtport):
                 bid_amount = input("Enter bid:")
                 sock.sendall(bid_amount.encode())
             if "Seller's IP:" in message:
-                seller_ip = message.split(':')[1]
-                handle_file_receive(seller_ip, rdtport)
+                seller_ip = message.split("Seller's IP: ")[1].strip()
+                print(seller_ip)
+                break
+            if "Unfortunately" in message:
+                return
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
+    
+    handle_file_receive(seller_ip, rdtport)
 
 def open_udp_socket(rdtport):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.bind(('eth0', rdtport))
+    udp_socket.bind(('0.0.0.0', rdtport))
     print("UDP socket opened for RDT")
     return udp_socket
 
-import socket
-import json
 
 def handle_file_send(buyer_ip, rdtport):
     # Create a UDP socket and set a timeout for retransmissions
-    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    rdtport=8081
+    udp_socket = open_udp_socket(rdtport)
     udp_socket.settimeout(2)  # Set a 2-second timeout for retransmissions
     seq_num = 0  # Initialize sequence number for Stop-and-Wait protocol
     file_path = 'tosend.file'  # Specify the file path
@@ -152,18 +160,17 @@ def handle_file_send(buyer_ip, rdtport):
             # Send a start message with the total file size (control message with TYPE=0)
             start_message = {
                 'TYPE': 0,               # Control message type (0 indicates a control message)
-                'seq_num': seq_num,      # Initial sequence number
-                'ack_num': 0,            # Acknowledgment number (not used here)
-                'data': f'start {file_size}'  # Start message data
+                'SEQ/ACK': seq_num,      # Initial sequence number
+                'DATA': f'start {file_size}'  # Start message data
             }
-            udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
+            udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, 8082))
             print(f"Sent start message: {start_message}")
 
             # Wait for acknowledgment for the start message
             try:
                 message, addr = udp_socket.recvfrom(1024)
                 message = json.loads(message.decode())
-                if message['ack_num'] == seq_num and ack['TYPE'] == 0 and addr[0] == buyer_ip:
+                if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
                     print("Start message acknowledged by winning buyer.")
                 else:
                     print("Unexpected ACK or from unknown IP. Discarding.")
@@ -179,22 +186,21 @@ def handle_file_send(buyer_ip, rdtport):
                 # Prepare the data packet (TYPE=1 indicates a data packet)
                 message = {
                     'TYPE': 1,                 # Data packet type
-                    'seq_num': seq_num,        # Sequence number for Stop-and-Wait protocol
-                    'ack_num': seq_num,        # Acknowledgment number (matches sequence number)
-                    'data': chunk_data.decode('latin-1')  # Convert binary data to string for JSON serialization
+                    'SEQ/ACK': seq_num,        # Sequence number for Stop-and-Wait protocol
+                    'DATA': chunk_data.decode('latin-1')  # Convert binary data to string for JSON serialization
                 }
 
                 sent = False
                 while not sent:
                     # Send the message as JSON
-                    udp_socket.sendto(json.dumps(message).encode(), (buyer_ip, rdtport))
+                    udp_socket.sendto(json.dumps(message).encode(), (buyer_ip, 8082))
                     print(f"Sent packet with sequence number {seq_num}")
 
                     try:
                         # Wait for an acknowledgment
-                        ack, addr = udp_socket.recvfrom(1024)
-                        ack = json.loads(ack.decode())
-                        if addr[0] == buyer_ip and ack['seq_num'] == seq_num and ack['TYPE'] == 0:
+                        message, addr = udp_socket.recvfrom(1024)
+                        message = json.loads(message.decode())
+                        if addr[0] == buyer_ip and message['SEQ/ACK'] == seq_num and message['TYPE'] == 0:
                             print(f"Received valid ACK for sequence {seq_num}")
                             # Toggle sequence number for Stop-and-Wait (0 -> 1 or 1 -> 0)
                             seq_num = 1 - seq_num
@@ -207,11 +213,10 @@ def handle_file_send(buyer_ip, rdtport):
         # Send end-of-transmission control message (TYPE=0)
         end_message = {
             'TYPE': 0,
-            'seq_num': seq_num,
-            'ack_num': 0,
-            'data': 'fin'
+            'SEQ/ACK': seq_num,
+            'DATA': 'fin'
         }
-        udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, rdtport))
+        udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, 8082))
         print("End-of-transmission signal sent.")
         print("File transmission completed.")
 
@@ -221,14 +226,81 @@ def handle_file_send(buyer_ip, rdtport):
         print(f"Unexpected error during file transfer: {e}")
     finally:
         udp_socket.close()
-        udp_socket.close()
         print("UDP socket closed.")
 
     
 def handle_file_receive(seller_ip, rdtport):
-    # udp_socket = open_udp_socket(rdtport)
-    # data, client_address = udp_socket.recvfrom(2000)
     print('Handle file send function called')
+    # seller_ip='127.0.0.1'
+    rdtport=8082
+    udp_socket = open_udp_socket(rdtport)
+    expected_seq_num = 0
+    file_data = b''
+
+    print("UDP socket created and listening...")
+
+
+    try:
+        while True:
+            message, addr = udp_socket.recvfrom(4096)
+            message = json.loads(message.decode())
+
+            if addr[0] != seller_ip:
+                continue
+
+            if message['TYPE'] == 0:
+                if 'start' in message['DATA']:
+                    print(f"Received start message: {message['DATA']}")
+                    total_file_size = int(message['DATA'].split()[1])
+
+                    ack_message = {
+                        'TYPE': 0,
+                        'SEQ/ACK': expected_seq_num,
+                        'DATA': None
+                    }
+                    udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+
+                    print(f"Send ACK for start message: {ack_message}")
+            
+                elif 'fin' in message['DATA']:
+                    print("Received end of transmission signal")
+                    break
+            
+            elif message['TYPE'] == 1:
+                seq_num = message['SEQ/ACK']
+                if seq_num == expected_seq_num:
+                    print(f"Received valid packet with sequence number {seq_num}")
+
+
+                    chunk_data = message['DATA'].encode('latin-1')
+
+                    file_data += chunk_data
+
+                    ack_message = {
+                        'TYPE': 0,
+                        'SEQ/ACK': seq_num,
+                        'DATA': None
+                    }
+
+                    udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+
+                    print(f"Sent ACK for sequence number {seq_num}")
+
+                    expected_seq_num = 1 - expected_seq_num
+                
+                else:
+                    print(f"Received out of order packet with sequence number {seq_num}. Discarding.")
+        
+        with open('received.file', 'wb') as file:
+            file.write(file_data)
+        print("File received and saved as 'received.file'")
+    
+    except Exception as e:
+        print(f"Unexpected error during file reception: {e}")
+    finally:
+        udp_socket.close()
+        print("UDP socket closed.")
+
         
 def connect_to_server(host, port, rdtport):
     '''Establishes a connection to the auction server.
@@ -250,6 +322,7 @@ def connect_to_server(host, port, rdtport):
             buyer_client(sock, rdtport)
         else:
             print("Unexpected role message from server.")
+        
     
     
 def main():
