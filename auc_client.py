@@ -161,9 +161,9 @@ def handle_file_send(buyer_ip, rdtport):
 
             # Wait for acknowledgment for the start message
             try:
-                ack, addr = udp_socket.recvfrom(1024)
-                ack = json.loads(ack.decode())
-                if ack['seq_num'] == seq_num and ack['TYPE'] == 0 and addr[0] == buyer_ip:
+                message, addr = udp_socket.recvfrom(1024)
+                message = json.loads(message.decode())
+                if message['ack_num'] == seq_num and ack['TYPE'] == 0 and addr[0] == buyer_ip:
                     print("Start message acknowledged by winning buyer.")
                 else:
                     print("Unexpected ACK or from unknown IP. Discarding.")
