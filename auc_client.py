@@ -160,7 +160,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 'SEQ/ACK': seq_num,      # Initial sequence number
                 'DATA': f'start {file_size} {original_checksum}'  # Start message data
             }
-            udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, 8082))
+            udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
             print(f"Sent start message: {start_message}")
 
             # Wait for acknowledgment for the start message
@@ -180,7 +180,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                         continue
                 except socket.timeout:
                     print("Timeout waiting for start message acknowledgment. Retrying.")
-                    udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, 8082))
+                    udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
                     print(f"Sent start message: {start_message}")
                     continue
 
@@ -198,7 +198,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 sent = False
                 while not sent:
                     # Send the message as JSON
-                    udp_socket.sendto(json.dumps(message).encode(), (buyer_ip, 8082))
+                    udp_socket.sendto(json.dumps(message).encode(), (buyer_ip, rdtport))
                     print(f"Sent packet with sequence number {seq_num}")
 
                     try:
@@ -228,7 +228,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
         udp_socket.settimeout(5)
         try:
             while True:
-                udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, 8082))
+                udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, rdtport))
                 response, addr = udp_socket.recvfrom(1024)
                 if np.random.binomial(1, packet_loss_rate) == 1:
                     print("Simulated packet loss for data packet acknowledgment.")
