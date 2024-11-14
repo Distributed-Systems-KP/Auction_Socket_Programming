@@ -357,7 +357,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
         print("UDP socket closed.")
 
         
-def connect_to_server(host, port, rdtport, packet_loss_rate, test=False):
+def connect_to_server(host, port, rdtport, packet_loss_rate):
     '''Establishes a connection to the auction server.
     Based on the role assigned by the server (Seller or Buyer),
     it calls the appropriate client logic.'''
@@ -372,21 +372,12 @@ def connect_to_server(host, port, rdtport, packet_loss_rate, test=False):
         
         # decides the role based on the initial message from the server and invokes the logic
         if "[Seller]" in initial_message:
-            if test:
-                rdtport = 8081
             seller_client(sock, rdtport, packet_loss_rate)
         elif "[Buyer]" in initial_message:
-            if test:
-                rdtport = 8082
             buyer_client(sock, rdtport, packet_loss_rate)
         else:
             print("Unexpected role message from server.")
 
-def validate_float(value):
-    fvalue = float(value)
-    if fvalue<0 or fvalue > 1:
-        raise argparse.ArgumentTypeError(f"{value} must be between 0 and 1")
-    return float(value)
         
 def main():
     '''This establishes a connection to the auction server.
@@ -399,14 +390,11 @@ def main():
     parser.add_argument('port', type=int, help="The server port")
     parser.add_argument('rdtport', type=int, help="The host rdtport")
     parser.add_argument('packet_loss_rate', type=validate_float, help="Set packet loss rate, must range between 0 and 0.1")
-    parser.add_argument("-t", "--test", help="For local testing, will discard rdtport input and use ports 8081 for sender and 8082 for receiver", action="store_true")
     
     args = parser.parse_args()
 
-    if args.test:
-        connect_to_server(args.host, args.port, args.rdtport, args.packet_loss_rate, args.test)
-    else:
-        connect_to_server(args.host, args.port, args.rdtport, args.packet_loss_rate)
+    
+    connect_to_server(args.host, args.port, args.rdtport, args.packet_loss_rate)
 
 
 if __name__ == "__main__":
