@@ -378,6 +378,11 @@ def connect_to_server(host, port, rdtport, packet_loss_rate):
         else:
             print("Unexpected role message from server.")
 
+def validate_float(value):
+    fvalue = float(value)
+    if fvalue<0 or fvalue > 1:
+        raise argparse.ArgumentTypeError(f"{value} must be between 0 and 1")
+    return float(value)
         
 def main():
     '''This establishes a connection to the auction server.
