@@ -6,19 +6,6 @@ import json
 import numpy as np
 import base64
 import hashlib
-# def handle_server_messages(sock):
-#     """ Continuously listen for messages from the server.
-#     This function runs on a separate thread and is responsible for receiving and displaying 
-#     messages from the server. """
-
-#     while True:
-#         try:
-#             message = sock.recv(1024).decode()
-#             if message:
-#                 print(f"{message}")
-#         except Exception as e:
-#             print(f"Error receiving message from server: {e}")
-#             break
 
 def validate_auction_request(auction_details):
     '''
@@ -80,7 +67,7 @@ def cal_check_sum(file_path):
             hash_obj.update(x)
     return hash_obj.hexdigest()
 
-def seller_client(sock, rdtport):
+def seller_client(sock, rdtport, packet_loss_rate):
     '''This handles seller side logic. The seller sends
     auction details and waits for the further messages from
     the server'''
@@ -104,14 +91,14 @@ def seller_client(sock, rdtport):
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
-    handle_file_send(buyer_ip, rdtport)
+    handle_file_send(buyer_ip, rdtport, packet_loss_rate)
 
     # Starting a thread to handle incoming messages from the server
     #threading.Thread(target=handle_server_messages, args=(sock,), daemon=True).start()
 
     # Keeping the main thread alive to continue listening for server messages
     
-def buyer_client(sock, rdtport):
+def buyer_client(sock, rdtport, packet_loss_rate):
     '''Handles buyer side logic.
     The buyer receives info from server and 
     submits bids when prompted.'''
@@ -139,7 +126,7 @@ def buyer_client(sock, rdtport):
             print(f"Error receiving message from server: {e}")
             break
     
-    handle_file_receive(seller_ip, rdtport)
+    handle_file_receive(seller_ip, rdtport, packet_loss_rate)
 
 def open_udp_socket(rdtport):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -150,7 +137,7 @@ def open_udp_socket(rdtport):
 
 def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
     # Create a UDP socket and set a timeout for retransmissions
-    rdtport=8081
+    # rdtport=8081
     udp_socket = open_udp_socket(rdtport)
     udp_socket.settimeout(2)  # Set a 2-second timeout for retransmissions
     seq_num = 0  # Initialize sequence number for Stop-and-Wait protocol
@@ -272,7 +259,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
 def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
     print('Handle file send function called')
     # seller_ip='127.0.0.1'
-    rdtport=8082
+    # rdtport=8082
     udp_socket = open_udp_socket(rdtport)
     expected_seq_num = 0
     file_data = b''
@@ -352,14 +339,11 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     print(f"Received out of order packet with sequence number {seq_num}. Discarding.")
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
         
-        
-
         with open('received.file', 'wb') as file:
             file.write(file_data)
         print("File received and saved as 'received.file'")
-
         ## creating checksum for the received data
-        received_checksum = cal_check_sum ('received.file')
+        received_checksum = cal_check_sum('received.file')
 
         if received_checksum == original_checksum :
             print("File transfer is complete and verified")
@@ -373,7 +357,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
         print("UDP socket closed.")
 
         
-def connect_to_server(host, port, rdtport):
+def connect_to_server(host, port, rdtport, packet_loss_rate, test=False):
     '''Establishes a connection to the auction server.
     Based on the role assigned by the server (Seller or Buyer),
     it calls the appropriate client logic.'''
@@ -388,11 +372,21 @@ def connect_to_server(host, port, rdtport):
         
         # decides the role based on the initial message from the server and invokes the logic
         if "[Seller]" in initial_message:
-            seller_client(sock, rdtport)
+            if test:
+                rdtport = 8081
+            seller_client(sock, rdtport, packet_loss_rate)
         elif "[Buyer]" in initial_message:
-            buyer_client(sock, rdtport)
+            if test:
+                rdtport = 8082
+            buyer_client(sock, rdtport, packet_loss_rate)
         else:
             print("Unexpected role message from server.")
+
+def validate_float(value):
+    fvalue = float(value)
+    if fvalue<0 or fvalue > 1:
+        raise argparse.ArgumentTypeError(f"{value} must be between 0 and 1")
+    return float(value)
         
 def main():
     '''This establishes a connection to the auction server.
@@ -404,11 +398,15 @@ def main():
     parser.add_argument('host', type=str, help="The server IP address")
     parser.add_argument('port', type=int, help="The server port")
     parser.add_argument('rdtport', type=int, help="The host rdtport")
-
+    parser.add_argument('packet_loss_rate', type=validate_float, help="Set packet loss rate, must range between 0 and 0.1")
+    parser.add_argument("-t", "--test", help="For local testing, will discard rdtport input and use ports 8081 for sender and 8082 for receiver", action="store_true")
+    
     args = parser.parse_args()
 
-    # Connect to the auction server with the provided host and port
-    connect_to_server(args.host, args.port, args.rdtport)
+    if args.test:
+        connect_to_server(args.host, args.port, args.rdtport, args.packet_loss_rate, args.test)
+    else:
+        connect_to_server(args.host, args.port, args.rdtport, args.packet_loss_rate)
 
 
 if __name__ == "__main__":
