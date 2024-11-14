@@ -5,7 +5,7 @@ import argparse
 import json
 import numpy as np
 import base64
-
+import hashlib
 # def handle_server_messages(sock):
 #     """ Continuously listen for messages from the server.
 #     This function runs on a separate thread and is responsible for receiving and displaying 
@@ -73,6 +73,12 @@ def send_auction_request(sock):
         else:
             print("Invalid Request, Please try again!")
 
+def cal_check_sum(file_path):
+    hash_obj= hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for x in iter(lambda: f.read(4096), b""):
+            hash_obj.update(x)
+    return hash_obj.hexdigest()
 
 def seller_client(sock, rdtport):
     '''This handles seller side logic. The seller sends
@@ -142,7 +148,7 @@ def open_udp_socket(rdtport):
     return udp_socket
 
 
-def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.5):
+def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
     # Create a UDP socket and set a timeout for retransmissions
     rdtport=8081
     udp_socket = open_udp_socket(rdtport)
@@ -158,11 +164,14 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.5):
             file_data = file.read()
             file_size = len(file_data)
 
+            #Creating checksum for the data
+            original_checksum = cal_check_sum(file_path)
+
             # Send a start message with the total file size (control message with TYPE=0)
             start_message = {
                 'TYPE': 0,               # Control message type (0 indicates a control message)
                 'SEQ/ACK': seq_num,      # Initial sequence number
-                'DATA': f'start {file_size}'  # Start message data
+                'DATA': f'start {file_size} {original_checksum}'  # Start message data
             }
             udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, 8082))
             print(f"Sent start message: {start_message}")
@@ -260,7 +269,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.5):
         print("UDP socket closed.")
 
     
-def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.5):
+def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
     print('Handle file send function called')
     # seller_ip='127.0.0.1'
     rdtport=8082
@@ -289,7 +298,13 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.5):
             if response_message['TYPE'] == 0:
                 if 'start' in response_message['DATA']:
                     print(f"Received start message: {response_message['DATA']}")
-                    total_file_size = int(response_message['DATA'].split()[1])
+                    split_data = response_message['DATA'].split()
+                    if len(split_data) == 3:
+                        total_file_size = int(split_data[1])
+                        original_checksum = split_data[2]
+                    else:
+                        print("Invalid start message format received.")
+                        return
 
                     ack_message = {
                         'TYPE': 0,
@@ -342,6 +357,14 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.5):
         with open('received.file', 'wb') as file:
             file.write(file_data)
         print("File received and saved as 'received.file'")
+
+        ## creating checksum for the received data
+        received_checksum = cal_check_sum ('received.file')
+
+        if received_checksum == original_checksum :
+            print("File transfer is complete and verified")
+        else:
+            print("File transfer is complete and the file is corrupted")
     
     except Exception as e:
         print(f"Unexpected error during file reception: {e}")
