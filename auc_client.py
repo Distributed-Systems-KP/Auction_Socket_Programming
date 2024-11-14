@@ -141,7 +141,7 @@ def open_udp_socket(rdtport):
     return udp_socket
 
 
-def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.1):
+def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.2):
     # Create a UDP socket and set a timeout for retransmissions
     rdtport=8081
     udp_socket = open_udp_socket(rdtport)
@@ -167,21 +167,23 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.1):
             print(f"Sent start message: {start_message}")
 
             # Wait for acknowledgment for the start message
-            try:
-                message, addr = udp_socket.recvfrom(1024)
-                ## simulating the packet loss
-                if np.random.binomial(1, packet_loss_rate) == 1:
-                    print("trying packet loss")
-                    return ## returning early to simulate packet loss
-                message = json.loads(message.decode())
-                if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
-                    print("Start message acknowledged by winning buyer.")
-                else:
-                    print("Unexpected ACK or from unknown IP. Discarding.")
-                    return
-            except socket.timeout:
-                print("Timeout waiting for start message acknowledgment. Exiting.")
-                return
+            while True:
+                try:
+                    message, addr = udp_socket.recvfrom(1024)
+                    ## simulating the packet loss
+                    if np.random.binomial(1, packet_loss_rate) == 1:
+                        print("trying packet loss")
+                        continue ## returning early to simulate packet loss
+                    message = json.loads(message.decode())
+                    if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
+                        print("Start message acknowledged by winning buyer.")
+                        break
+                    else:
+                        print("Unexpected ACK or from unknown IP. Discarding.")
+                        continue
+                except socket.timeout:
+                    print("Timeout waiting for start message acknowledgment. Retrying.")
+                    continue
 
             # Send file data in chunks
             for i in range(0, file_size, 2000):
@@ -224,19 +226,23 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.1):
             'DATA': 'fin'
         }
 
-        while True:
-            udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, 8082))
-            try:
+        udp_socket.settimeout(5)
+        try:
+            while True:
+                udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, 8082))
                 message, addr = udp_socket.recvfrom(1024)
                 if np.random.binomial(1, packet_loss_rate) == 1:
                     print("Simulated packet loss for data packet acknowledgment.")
                     continue  ## skipping the further processing
                 message = json.loads(message.decode())
-                if addr[0] == buyer_ip and message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and 'fin/ac' in message['DATA']:
+                print(message)
+                if addr[0] == buyer_ip and message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and 'fin/ack' in message['DATA']:
                     print(f"Received valid FIN/ACK for sequence {seq_num}")
                     break
-            except Exception as e:
-                print(f"Error: {e}")
+        except socket.timeout:
+            print("Timeout occured.")
+        except Exception as e:
+            print(f"Error: {e}")
 
 
         print("End-of-transmission signal sent.")
@@ -251,7 +257,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.1):
         print("UDP socket closed.")
 
     
-def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
+def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.2):
     print('Handle file send function called')
     # seller_ip='127.0.0.1'
     rdtport=8082
