@@ -6,6 +6,7 @@ import json
 import numpy as np
 import base64
 import hashlib
+import time
 
 def validate_auction_request(auction_details):
     '''
@@ -161,7 +162,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 'DATA': f'start {file_size} {original_checksum}'  # Start message data
             }
             udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
-            print(f"Sent start message: {start_message}")
+            print(f"Sending control seq 0: {start_message['DATA']}")
 
             # Wait for acknowledgment for the start message
             while True:
@@ -173,7 +174,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                         continue ## returning early to simulate packet loss
                     message = json.loads(message.decode())
                     if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
-                        print("Start message acknowledged by winning buyer.")
+                        print(f"Ack received: {seq_num}")
                         break
                     else:
                         print("Unexpected ACK or from unknown IP. Discarding.")
@@ -181,7 +182,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 except socket.timeout:
                     print("Timeout waiting for start message acknowledgment. Retrying.")
                     udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
-                    print(f"Sent start message: {start_message}")
+                    print(f"Sending control seq 0: {start_message['DATA']}")
                     continue
 
             # Send file data in chunks
@@ -264,7 +265,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
     expected_seq_num = 0
     file_data = b''
     ack_message = {}
-
+    start_time = None
+    end_time = None
     print("UDP socket created and listening...")
 
 
@@ -301,6 +303,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
 
                     print(f"Send ACK for start message: {ack_message}")
+                    start_time = time.time()
             
                 elif 'fin' in response_message['DATA']:
                     ack_message = {
@@ -310,10 +313,11 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     }
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
                     print("Received end of transmission signal. Sent fin/ack")
+                    end_time = time.time()
                     break
             
             if response_message['TYPE'] == 1:
-
+                
                 seq_num = response_message['SEQ/ACK']
                 if seq_num == expected_seq_num:
                     print(f"Received valid packet with sequence number {seq_num}")
@@ -339,6 +343,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     print(f"Received out of order packet with sequence number {seq_num}. Discarding.")
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
         
+        transfer_completion_time = end_time - start_time
+        print(f"Test tct timer: {transfer_completion_time}")
         with open('received.file', 'wb') as file:
             file.write(file_data)
         print("File received and saved as 'received.file'")
