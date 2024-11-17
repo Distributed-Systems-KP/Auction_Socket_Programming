@@ -329,8 +329,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     chunk_data = base64.b64decode(response_message['DATA'].encode('utf-8'))
 
                     file_data += chunk_data
-                    current_size = os.path.getsize(file_data)
-                    print(f" Received Data seq {seq_num} : {current_size}/{total_file_size}")
+                    current_size = len(file_data)
+                    print(f"Received Data seq {seq_num} : {current_size}/{total_file_size}")
 
                     ack_message = {
                         'TYPE': 0,
