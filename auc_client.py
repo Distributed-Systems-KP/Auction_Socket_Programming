@@ -349,7 +349,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
                     print(f"Ack re-sent: {seq_num}")
         
-        transfer_completion_time = end_time - start_time
+        transfer_completion_time = round(end_time - start_time, 6)
         print(f"Test tct timer: {transfer_completion_time}")
         with open('received.file', 'wb') as file:
             file.write(file_data)
@@ -359,6 +359,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
 
         if received_checksum == original_checksum :
             print("File transfer is complete and verified")
+            throughput = get_average_throughput(current_size, transfer_completion_time)
+            print(f"Transmission finished: {current_size} / {transfer_completion_time} = {throughput} bps")
         else:
             print("File transfer is complete and the file is corrupted")
     
@@ -368,6 +370,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
         udp_socket.close()
         print("UDP socket closed.")
 
+def get_average_throughput(bytes, seconds):
+    return round(bytes / seconds, 6)
         
 def connect_to_server(host, port, rdtport, packet_loss_rate):
     '''Establishes a connection to the auction server.
@@ -406,7 +410,7 @@ def main():
     parser.add_argument('host', type=str, help="The server IP address")
     parser.add_argument('port', type=int, help="The server port")
     parser.add_argument('rdtport', type=int, help="The host rdtport")
-    parser.add_argument('packet_loss_rate', type=validate_float, help="Set packet loss rate, must range between 0 and 0.1")
+    parser.add_argument('packet_loss_rate', type=validate_float, help="Set packet loss rate, must range between 0 and 1")
     
     args = parser.parse_args()
 
