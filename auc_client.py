@@ -152,7 +152,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
         with open(file_path, 'rb') as file:
             # Calculate total file size
             file_data = file.read()
-            file_size = os.path.getsize(file_data)
+            file_size = os.path.getsize(file_path)
 
             #Creating checksum for the data
             original_checksum = cal_check_sum(file_path)
