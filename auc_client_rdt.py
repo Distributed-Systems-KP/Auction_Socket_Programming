@@ -322,7 +322,8 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     print("Received end of transmission signal. Sent fin/ack")
                     end_time = time.time()
                     break
-            
+
+            expected_seq_num = 1
             if response_message['TYPE'] == 1:
                 
                 seq_num = response_message['SEQ/ACK']
