@@ -372,7 +372,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
         if received_checksum == original_checksum :
             print("All data received! Exiting.....")
             throughput = get_average_throughput(current_size, transfer_completion_time)
-            print(f"Transmission finished: {current_size} / {transfer_completion_time} = {throughput} bps")
+            print(f"Transmission finished: {current_size} bytes / {transfer_completion_time} seconds = {throughput} bps")
         else:
             print("File transfer is complete and the file is corrupted")
     
