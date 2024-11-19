@@ -360,15 +360,15 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     print(f"Ack re-sent: {seq_num}")
         
         transfer_completion_time = round(end_time - start_time, 6)
-        print(f"Test tct timer: {transfer_completion_time}")
+        # print(f"Test tct timer: {transfer_completion_time}")
         with open('received.file', 'wb') as file:
             file.write(file_data)
-        print("File received and saved as 'received.file'")
+        # print("File received and saved as 'received.file'")
         ## creating checksum for the received data
         received_checksum = cal_check_sum('received.file')
 
         if received_checksum == original_checksum :
-            print("File transfer is complete and verified")
+            print("All data received! Exiting.....")
             throughput = get_average_throughput(current_size, transfer_completion_time)
             print(f"Transmission finished: {current_size} / {transfer_completion_time} = {throughput} bps")
         else:
