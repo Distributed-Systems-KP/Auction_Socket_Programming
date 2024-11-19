@@ -222,7 +222,7 @@ class AuctioneerServer:
         buyer_ip = winner_conn.getpeername()[0]
         
         winner_conn.sendall(f"You won this item {self.auction_details['item_name']}. Your payment due is ${price}. Seller's IP: {seller_ip}\n".encode())    # Notify winner
-        self.seller_conn.sendall(f"Success! Your item {self.auction_details['item_name']} has been sold for ${price}. Winning Buyer's IP: {buyer_ip}\n".encode()) # Notify seller
+        self.seller_conn.sendall(f"Auction Finished!\n Success! Your item {self.auction_details['item_name']} has been sold for ${price}. Winning Buyer's IP: {buyer_ip}\n".encode()) # Notify seller
 
         print(f"The item was sold to {winner_id} for ${price}")
 
