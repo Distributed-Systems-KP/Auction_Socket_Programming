@@ -317,8 +317,9 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     print(f"Ack sent: {expected_seq_num}")
                     expected_seq_num = 1
                     start_time = time.time()
-                expected_seq_num = 1
+               
                 elif 'fin' in response_message['DATA']:
+                    expected_seq_num = 1
                     ack_message = {
                         'TYPE': 0,
                         'SEQ/ACK': expected_seq_num,
