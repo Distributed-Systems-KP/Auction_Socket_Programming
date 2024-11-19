@@ -314,7 +314,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     }
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
 
-                    print(f"Send ACK for start message: {ack_message}")
+                    print(f"Ack sent: {expected_seq_num}")
                     expected_seq_num = 1
                     start_time = time.time()
             
