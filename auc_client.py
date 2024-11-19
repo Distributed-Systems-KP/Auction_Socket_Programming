@@ -45,6 +45,7 @@ def send_auction_request(sock):
 
         if len(auction_details) != 4:
             print("You must provide exactly 4 details:<auction type> <min_price> <max_bids> <item_name>")
+            continue
         
             # validating the input before sending to server
         if validate_auction_request(auction_details): 
@@ -384,15 +385,14 @@ def connect_to_server(host, port, rdtport, packet_loss_rate):
         
         # Receive initial role assignment from the server
         initial_message = sock.recv(1024).decode()
-        print(f"Server: {initial_message}")
+        print(f"{initial_message}")
         
         # decides the role based on the initial message from the server and invokes the logic
         if "[Seller]" in initial_message:
             seller_client(sock, rdtport, packet_loss_rate)
         elif "[Buyer]" in initial_message:
             buyer_client(sock, rdtport, packet_loss_rate)
-        else:
-            print("Unexpected role message from server.")
+        
 
 def validate_float(value):
     fvalue = float(value)

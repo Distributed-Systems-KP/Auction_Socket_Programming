@@ -199,6 +199,7 @@ class AuctioneerServer:
                 if self.auction_details['auc_type'] == 1:   # First auction type
                     self.notify_winner(highest_bidder_id, highest_bid)
                 elif self.auction_details['auc_type'] == 2: # Second auction type
+                    self.bids['seller_min_price'] = self.auction_details['auc_min_price']
                     second_highest_bid = sorted(self.bids.values(), reverse=True)[1]
                     self.notify_winner(highest_bidder_id, second_highest_bid)
             else:
