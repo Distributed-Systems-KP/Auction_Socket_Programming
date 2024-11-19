@@ -256,7 +256,9 @@ class AuctioneerServer:
         self.auction_details = None # Cleared stored auction details
         self.ongoing = False    # Reset ongoing flag
 
-        if self.seller_conn:    # Closing connection with seller
+        if self.seller_conn:
+            message_to_seller = "Disconnecting from the Auctioneer server.Auction is over."
+            self.seller_conn.send(message_to_seller.encode())# Closing connection with seller
             self.seller_conn.close()
             print("Connection closed with seller")
         self.seller_conn = None # Clearing stored seller connection object
