@@ -179,6 +179,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                     message = json.loads(message.decode())
                     if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
                         print(f"Ack received: {seq_num}")
+                        seq_num = 1
                         break
                     else:
                         print("Unexpected ACK or from unknown IP. Discarding.")
