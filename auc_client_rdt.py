@@ -239,9 +239,9 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                     print("Simulated packet loss for data packet acknowledgment.")
                     continue  ## skipping the further processing
                 response_message = json.loads(response.decode())
-                print(message)
+                # print(message)
                 if addr[0] == buyer_ip and response_message['SEQ/ACK'] == seq_num and response_message['TYPE'] == 0 and 'fin/ack' in response_message['DATA']:
-                    print(f"Received valid FIN/ACK for sequence {seq_num}")
+                    print(f"Ack Received: {seq_num}")
                     break
         except socket.timeout:
             print("Timeout occured.")
