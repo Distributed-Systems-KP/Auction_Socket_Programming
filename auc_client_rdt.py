@@ -89,7 +89,7 @@ def seller_client(sock, rdtport, packet_loss_rate):
                 continue
             if "Buyer's IP:" in message:
                 buyer_ip = message.split("Buyer's IP: ")[1].strip()
-                print(buyer_ip) 
+                # print(buyer_ip) 
                 break
         except Exception as e:
             print(f"Error receiving message from server: {e}")
@@ -121,7 +121,7 @@ def buyer_client(sock, rdtport, packet_loss_rate):
                 sock.sendall(bid_amount.encode())
             if "Seller's IP:" in message:
                 seller_ip = message.split("Seller's IP: ")[1].strip()
-                print(seller_ip)
+                # print(seller_ip)
                 break
             if "Unfortunately" in message:
                 return
