@@ -179,6 +179,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                     message = json.loads(message.decode())
                     if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
                         print(f"Ack received: {seq_num}")
+                        seq_num = 1
                         break
                     else:
                         print("Unexpected ACK or from unknown IP. Discarding.")
@@ -190,7 +191,6 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                     continue
 
             # Send file data in chunks
-            seq_num = 1
             for i in range(0, file_size, 2000):
                 chunk_data = base64.b64encode(file_data[i:i + 2000]).decode('utf-8')
 
@@ -310,6 +310,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
 
                     print(f"Send ACK for start message: {ack_message}")
+                    expected_seq_num = 1
                     start_time = time.time()
             
                 elif 'fin' in response_message['DATA']:
