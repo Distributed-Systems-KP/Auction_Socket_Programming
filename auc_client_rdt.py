@@ -339,6 +339,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
 
                     file_data += chunk_data
                     current_size = len(file_data)
+                    print(f"Ack sent: {seq_num}")
                     print(f"Received Data seq {seq_num} : {current_size}/{total_file_size}")
 
                     ack_message = {
@@ -349,7 +350,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                     
 
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
-                    print(f"Ack sent: {seq_num}")
+                    
 
                     expected_seq_num = 1 - expected_seq_num
                 
