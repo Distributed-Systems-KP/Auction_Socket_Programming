@@ -293,7 +293,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
 
             if response_message['TYPE'] == 0:
                 if 'start' in response_message['DATA']:
-                    seq_num = response_message.get('SEQ_NUM', None)  # Assuming 'SEQ_NUM' is the key holding the sequence number
+                    seq_num = response_message.get('SEQ/ACK', None)  # Assuming 'SEQ_NUM' is the key holding the sequence number
                     if seq_num is None:
                         print("Error: sequence number is missing")
                     else:
