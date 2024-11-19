@@ -134,7 +134,7 @@ def buyer_client(sock, rdtport, packet_loss_rate):
 def open_udp_socket(rdtport):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(('0.0.0.0', rdtport))
-    print("UDP socket opened for RDT")
+    # print("UDP socket opened for RDT")
     return udp_socket
 
 
