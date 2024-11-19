@@ -293,15 +293,19 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
 
             if response_message['TYPE'] == 0:
                 if 'start' in response_message['DATA']:
-                    print(f"Msg received: {seq_num}")
-                    split_data = response_message['DATA'].split()
-                    if len(split_data) == 3:
-                        total_file_size = int(split_data[1])
-                        original_checksum = split_data[2]
-                        
+                    seq_num = response_message.get('SEQ_NUM', None)  # Assuming 'SEQ_NUM' is the key holding the sequence number
+                    if seq_num is None:
+                        print("Error: sequence number is missing")
                     else:
-                        print("Invalid start message format received.")
-                        return
+                        print(f"Msg received: {seq_num}")
+                        split_data = response_message['DATA'].split()
+                        if len(split_data) == 3:
+                            total_file_size = int(split_data[1])
+                            original_checksum = split_data[2]
+                        
+                        else:
+                            print("Invalid start message format received.")
+                            return
 
                     ack_message = {
                         'TYPE': 0,
