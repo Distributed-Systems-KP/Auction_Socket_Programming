@@ -234,6 +234,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
         try:
             while True:
                 udp_socket.sendto(json.dumps(end_message).encode(), (buyer_ip, rdtport))
+                print(f"Sending control seq: {seq_num} : fin")
                 response, addr = udp_socket.recvfrom(1024)
                 if np.random.binomial(1, packet_loss_rate) == 1:
                     print("Simulated packet loss for data packet acknowledgment.")
@@ -248,7 +249,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
         except Exception as e:
             print(f"Error: {e}")
 
-        print("End-of-transmission signal sent.")
+        # print("End-of-transmission signal sent.")
         print("File transmission completed.")
 
     except FileNotFoundError:
