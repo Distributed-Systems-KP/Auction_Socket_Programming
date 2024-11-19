@@ -204,7 +204,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 while not sent:
                     # Send the message as JSON
                     udp_socket.sendto(json.dumps(message).encode(), (buyer_ip, rdtport))
-                    print(f"Sent packet with sequence number {seq_num}")
+                    # print(f"Sent packet with sequence number {seq_num}")
 
                     try:
                         # Wait for an acknowledgment
@@ -214,7 +214,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                             continue  ## skipping the further processing
                         response_message = json.loads(response.decode())
                         if addr[0] == buyer_ip and response_message['SEQ/ACK'] == seq_num and response_message['TYPE'] == 0:
-                            print(f"Received valid ACK for sequence {seq_num}")
+                            print(f"ACK received: {seq_num}")
                             # Toggle sequence number for Stop-and-Wait (0 -> 1 or 1 -> 0)
                             seq_num = 1 - seq_num
                             sent = True
