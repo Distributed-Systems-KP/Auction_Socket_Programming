@@ -325,7 +325,9 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                         'DATA': "fin/ack"
                     }
                     udp_socket.sendto(json.dumps(ack_message).encode(), addr)
-                    print("Received end of transmission signal. Sent fin/ack")
+                    # print("Received end of transmission signal. Sent fin/ack")
+                    print(f"Msg received: {seq_num}")
+                    print(f"Ack sent: {expected_seq_num}")
                     end_time = time.time()
                     break
 
