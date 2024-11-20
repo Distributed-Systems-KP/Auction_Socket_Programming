@@ -460,7 +460,7 @@ def main():
     parser.add_argument('host', type=str, help="The server IP address")
     parser.add_argument('port', type=int, help="The server port")
     parser.add_argument('rdtport', type=int, help="The host rdtport")
-    parser.add_argument('packet_loss_rate', type=validate_float, help="Set packet loss rate, must range between 0 and 1")
+    parser.add_argument('packet_loss_rate', type=validate_float, help="Set packet loss rate, must range between 0 and 1", default=0, nargs='?')
     
     args = parser.parse_args()
 
