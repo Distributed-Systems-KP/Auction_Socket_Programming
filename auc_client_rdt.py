@@ -89,14 +89,12 @@ def seller_client(sock, rdtport, packet_loss_rate):
                 continue
             if "Buyer's IP:" in message:
                 buyer_ip = message.split("Buyer's IP: ")[1].strip()
-                # print(buyer_ip) 
-            if "Disconnecting" in message:
-                handle_file_send(seller_ip, rdtport, packet_loss_rate)
                 break
+                # print(buyer_ip) 
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
-    
+        handle_file_send(seller_ip, rdtport, packet_loss_rate)
 
     # Starting a thread to handle incoming messages from the server
     #threading.Thread(target=handle_server_messages, args=(sock,), daemon=True).start()
@@ -123,15 +121,14 @@ def buyer_client(sock, rdtport, packet_loss_rate):
                 sock.sendall(bid_amount.encode())
             if "Seller's IP:" in message:
                 seller_ip = message.split("Seller's IP: ")[1].strip()
+                break
                 # print(seller_ip)
             if "Unfortunately" in message:
                 return
-            if "Disconnecting" in message:
-                handle_file_receive(seller_ip, rdtport, packet_loss_rate)
-                break
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
+        handle_file_receive(seller_ip, rdtport, packet_loss_rate)
     
     
 
@@ -149,7 +146,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
     udp_socket.settimeout(2)  # Set a 2-second timeout for retransmissions
     seq_num = 0  # Initialize sequence number for Stop-and-Wait protocol
     file_path = 'tosend.file'  # Specify the file path
-
+    print("Disconnecting from the Auctioneer Server. Auction is over!")
     print("UDP socket opened for RDT")
     print("Start sending file")
 
@@ -278,6 +275,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
     udp_socket.settimeout(2)
     total_file_size=0
     current_size =0
+    print("Disconnecting from the Auctioneer Server. Auction is over!")
     print("UDP socket opened for RDT")
     print("Start receiving file")
 
