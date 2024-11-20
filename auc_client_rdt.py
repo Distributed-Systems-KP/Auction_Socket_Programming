@@ -193,6 +193,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
             # Send file data in chunks
             for i in range(0, file_size, 2000):
                 chunk_data = base64.b64encode(file_data[i:i + 2000]).decode('utf-8')
+                actual_chunk_size = len(file_data[i:i + 2000]) 
 
                 # Prepare the data packet (TYPE=1 indicates a data packet)
                 message = {
@@ -200,7 +201,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                     'SEQ/ACK': seq_num,        # Sequence number for Stop-and-Wait protocol
                     'DATA': chunk_data  # Convert binary data to string for JSON serialization
                 }
-                print(f"Sending data seq {seq_num}: {i+2000} / {file_size}")
+                print(f"Sending data seq {seq_num}: {i+actual_chunk_size} / {file_size}")
                 sent = False
                 while not sent:
                     # Send the message as JSON
