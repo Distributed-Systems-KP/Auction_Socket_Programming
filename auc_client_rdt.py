@@ -221,7 +221,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                             seq_num = 1 - seq_num
                             sent = True
                         else:
-                            print("Received invalid ACK or from unknown IP. Resending packet.")
+                            print(f"Msg re-sent: {seq_num}")    # For mismatched ack
                     except socket.timeout:
                          print(f"Msg re-sent: {seq_num}")
 
