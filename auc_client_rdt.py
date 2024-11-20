@@ -171,13 +171,11 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
             # Wait for acknowledgment for the start message
             while True:
                 try:
-                    message, addr = udp_socket.recvfrom(1024)
-                    ## simulating the packet loss
                     if np.random.binomial(1, packet_loss_rate) == 1:
                         print(f"Ack dropped: {seq_num}")
-                        print(f"Msg re-sent: {seq_num}")
-                        udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
                         continue 
+                    message, addr = udp_socket.recvfrom(1024)
+                    ## simulating the packet loss
                     message = json.loads(message.decode())
                     if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
                         print(f"Ack received: {seq_num}")
@@ -189,7 +187,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 except socket.timeout:
                     print(f"Msg re-sent: {seq_num}")
                     udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
-                    print(f"Sending control seq 0: start {file_size}")
+                    print(f"Sending control seq {seq_num}: start {file_size}")
                     continue
 
             # Send file data in chunks
@@ -212,11 +210,10 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
 
                     try:
                         # Wait for an acknowledgment
-                        response, addr = udp_socket.recvfrom(1024)
                         if np.random.binomial(1, packet_loss_rate) == 1:
                             print(f"Ack dropped: {seq_num}")
-                            print(f"Msg re-sent: {seq_num}")
                             continue  ## skipping the further processing
+                        response, addr = udp_socket.recvfrom(1024)
                         response_message = json.loads(response.decode())
                         if addr[0] == buyer_ip and response_message['SEQ/ACK'] == seq_num and response_message['TYPE'] == 0:
                             print(f"ACK received: {seq_num}")
@@ -242,7 +239,6 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                 print(f"Sending control seq: {seq_num} : fin")
                 response, addr = udp_socket.recvfrom(1024)
                 if np.random.binomial(1, packet_loss_rate) == 1:
-
                     print(f"Ack dropped: {seq_num}")
                     continue  ## skipping the further processing
                 response_message = json.loads(response.decode())
@@ -321,7 +317,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
                         }
                         udp_socket.sendto(json.dumps(ack_message).encode(), addr)
 
-                        print(f"Ack sent: {expected_seq_num}")
+                        print(f"Ack sent: 0")
                         expected_seq_num = 1
                         start_time = time.time()
                 
