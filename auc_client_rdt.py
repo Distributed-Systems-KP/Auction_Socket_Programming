@@ -282,88 +282,93 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
 
     try:
         while True:
+            try:
+                if np.random.binomial(1, packet_loss_rate) == 1:
+                    print("Pkt dropped: 0")
+                    continue  # Simulate packet loss by discarding the message
 
-            if np.random.binomial(1, packet_loss_rate) == 1:
-                print("Pkt dropped: 0")
-                continue  # Simulate packet loss by discarding the message
+                response, addr = udp_socket.recvfrom(4096)
 
-            response, addr = udp_socket.recvfrom(4096)
+                response_message = json.loads(response.decode())
 
-            response_message = json.loads(response.decode())
+                if addr[0] != seller_ip:
+                    continue
 
-            if addr[0] != seller_ip:
-                continue
-
-            if response_message['TYPE'] == 0:
-                if 'start' in response_message['DATA']:
-                    seq_num = response_message.get('SEQ/ACK', None)  # Assuming 'SEQ_NUM' is the key holding the sequence number
-                    if seq_num is None:
-                        print("Error: sequence number is missing")
-                    else:
-                        print(f"Msg received: {seq_num}")
-                        split_data = response_message['DATA'].split()
-                        if len(split_data) == 3:
-                            total_file_size = int(split_data[1])
-                            original_checksum = split_data[2]
-                        
+                if response_message['TYPE'] == 0:
+                    if 'start' in response_message['DATA']:
+                        seq_num = response_message.get('SEQ/ACK', None)  # Assuming 'SEQ_NUM' is the key holding the sequence number
+                        if seq_num is None:
+                            print("Error: sequence number is missing")
                         else:
-                            print("Invalid start message format received.")
-                            return
+                            print(f"Msg received: {seq_num}")
+                            split_data = response_message['DATA'].split()
+                            if len(split_data) == 3:
+                                total_file_size = int(split_data[1])
+                                original_checksum = split_data[2]
+                            
+                            else:
+                                print("Invalid start message format received.")
+                                return
 
-                    ack_message = {
-                        'TYPE': 0,
-                        'SEQ/ACK': expected_seq_num,
-                        'DATA': None
-                    }
-                    udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+                        ack_message = {
+                            'TYPE': 0,
+                            'SEQ/ACK': expected_seq_num,
+                            'DATA': None
+                        }
+                        udp_socket.sendto(json.dumps(ack_message).encode(), addr)
 
-                    print(f"Ack sent: {expected_seq_num}")
-                    expected_seq_num = 1
-                    start_time = time.time()
-               
-                elif 'fin' in response_message['DATA']:
-                    ack_message = {
-                        'TYPE': 0,
-                        'SEQ/ACK': expected_seq_num,
-                        'DATA': "fin/ack"
-                    }
-                    udp_socket.sendto(json.dumps(ack_message).encode(), addr)
-                    # print("Received end of transmission signal. Sent fin/ack")
-                    print(f"Msg received: {seq_num}")
-                    print(f"Ack sent: {expected_seq_num}")
-                    end_time = time.time()
-                    break
-
-            if response_message['TYPE'] == 1:
+                        print(f"Ack sent: {expected_seq_num}")
+                        expected_seq_num = 1
+                        start_time = time.time()
                 
-                seq_num = response_message['SEQ/ACK']
-                if seq_num == expected_seq_num:
-                    print(f"Msg received: {seq_num}")
+                    elif 'fin' in response_message['DATA']:
+                        ack_message = {
+                            'TYPE': 0,
+                            'SEQ/ACK': expected_seq_num,
+                            'DATA': "fin/ack"
+                        }
+                        udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+                        # print("Received end of transmission signal. Sent fin/ack")
+                        print(f"Msg received: {seq_num}")
+                        print(f"Ack sent: {expected_seq_num}")
+                        end_time = time.time()
+                        break
+
+                if response_message['TYPE'] == 1:
                     
-                    chunk_data = base64.b64decode(response_message['DATA'].encode('utf-8'))
+                    seq_num = response_message['SEQ/ACK']
+                    if seq_num == expected_seq_num:
+                        print(f"Msg received: {seq_num}")
+                        
+                        chunk_data = base64.b64decode(response_message['DATA'].encode('utf-8'))
 
-                    file_data += chunk_data
-                    current_size = len(file_data)
-                    print(f"Ack sent: {seq_num}")
-                    print(f"Received Data seq {seq_num} : {current_size}/{total_file_size}")
+                        file_data += chunk_data
+                        current_size = len(file_data)
+                        print(f"Ack sent: {seq_num}")
+                        print(f"Received Data seq {seq_num} : {current_size}/{total_file_size}")
 
-                    ack_message = {
-                        'TYPE': 0,
-                        'SEQ/ACK': seq_num,
-                        'DATA': None
-                    }
+                        ack_message = {
+                            'TYPE': 0,
+                            'SEQ/ACK': seq_num,
+                            'DATA': None
+                        }
+                        
+
+                        udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+                        
+
+                        expected_seq_num = 1 - expected_seq_num
                     
+                    else:
+                        print(f"Msg received with mismatched sequence number {seq_num}. Expecting {expected_seq_num}")
+                        udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+                        print(f"Ack re-sent: {seq_num}")
+            except socket.timeout:
+                print("Timeout occured.")
+                udp_socket.sendto(json.dumps(ack_message).encode(), addr)
+                continue
+    
 
-                    udp_socket.sendto(json.dumps(ack_message).encode(), addr)
-                    
-
-                    expected_seq_num = 1 - expected_seq_num
-                
-                else:
-                    print(f"Msg received with mismatched sequence number {seq_num}. Expecting {expected_seq_num}")
-                    udp_socket.sendto(json.dumps(ack_message).encode(), addr)
-                    print(f"Ack re-sent: {seq_num}")
-        
         transfer_completion_time = round(end_time - start_time, 6)
         # print(f"Test tct timer: {transfer_completion_time}")
         with open('received.file', 'wb') as file:
