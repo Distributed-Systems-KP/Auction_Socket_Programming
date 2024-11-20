@@ -211,7 +211,8 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                         # Wait for an acknowledgment
                         response, addr = udp_socket.recvfrom(1024)
                         if np.random.binomial(1, packet_loss_rate) == 1:
-                            print("Simulated packet loss for data packet acknowledgment.")
+                            print(f"Msg re-sent: {seq_num}")
+                            print(f"Ack dropped: {seq_num}")
                             continue  ## skipping the further processing
                         response_message = json.loads(response.decode())
                         if addr[0] == buyer_ip and response_message['SEQ/ACK'] == seq_num and response_message['TYPE'] == 0:
