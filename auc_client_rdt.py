@@ -133,6 +133,9 @@ def buyer_client(sock, rdtport, packet_loss_rate):
     
 
 def open_udp_socket(rdtport):
+    '''
+    Opens and binds a UDP socket to the specified rdtport
+    '''
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(('0.0.0.0', rdtport))
     # print("UDP socket opened for RDT")
@@ -140,9 +143,20 @@ def open_udp_socket(rdtport):
 
 
 def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
-    # Create a UDP socket and set a timeout for retransmissions
-    # rdtport=8081
-    udp_socket = open_udp_socket(rdtport)
+    '''
+    Implements RDT mechanism for file send. Both the seller and buyer use the same ports on each end
+    for RDT.
+    This function sends a a file in chunks to specified buyer's IP address and ensures that each chunk
+    is acknowledged before proceeding to the next.
+    Also simulates packet loss based on a specified packet loss rate.
+
+    Notes:
+        - This function uses a 2 second timeout for retransmisions and 5 second timeout for the fin message reply (fin/ack)
+          to close the connection with the receiver.
+        - Checksum is calculated for entire file and sent with start message to ensure data integrity
+    '''
+
+    udp_socket = open_udp_socket(rdtport) # Create UDP socket for file transfer
     udp_socket.settimeout(2)  # Set a 2-second timeout for retransmissions
     seq_num = 0  # Initialize sequence number for Stop-and-Wait protocol
     file_path = 'tosend.file'  # Specify the file path
@@ -171,11 +185,11 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
             # Wait for acknowledgment for the start message
             while True:
                 try:
+                    # simulating the packet loss
                     if np.random.binomial(1, packet_loss_rate) == 1:
                         print(f"Ack dropped: {seq_num}")
                         continue 
                     message, addr = udp_socket.recvfrom(1024)
-                    ## simulating the packet loss
                     message = json.loads(message.decode())
                     if message['SEQ/ACK'] == seq_num and message['TYPE'] == 0 and addr[0] == buyer_ip:
                         print(f"Ack received: {seq_num}")
@@ -264,8 +278,19 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
 
     
 def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
-    # seller_ip='127.0.0.1'
-    # rdtport=8082
+    '''
+    Implements RDT mechanism for file send. Both the seller and buyer use the same ports on each end
+    for RDT.
+    This function receives a file in chunks from the specified serller's IP and ensures that each chunk is 
+    acknowledged before the next one is received.
+    The function also simulates packet loss based on a specified packet loss rate.
+    Prints total average throughput after file reception and verification
+
+    Notes:
+        - The function uses a 2-second timeout for retransmissions
+        - A checksum is received with the start message with the checksum of the file and the checksum is recalculated
+          to verify file integrity of the received file.  
+    '''
     udp_socket = open_udp_socket(rdtport)
     expected_seq_num = 0
     file_data = b''
@@ -391,6 +416,9 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
         print("UDP socket closed.")
 
 def get_average_throughput(bytes, seconds):
+    '''
+    This function calculates and returns average throughput in unit bytes per second.
+    '''
     return round(bytes / seconds, 6)
         
 def connect_to_server(host, port, rdtport, packet_loss_rate):
@@ -414,6 +442,9 @@ def connect_to_server(host, port, rdtport, packet_loss_rate):
         
 
 def validate_float(value):
+    '''
+    This function validates whether the input lies in range [0, 1]
+    '''
     fvalue = float(value)
     if fvalue < 0 or fvalue > 1:
         raise argparse.ArgumentTypeError(f"{value} must be between 0 and 1")
