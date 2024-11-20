@@ -271,6 +271,7 @@ def handle_file_receive(seller_ip, rdtport, packet_loss_rate=0.0):
     ack_message = {}
     start_time = None
     end_time = None
+    udp_socket.settimeout(2)
     total_file_size=0
     current_size =0
     print("UDP socket opened for RDT")
