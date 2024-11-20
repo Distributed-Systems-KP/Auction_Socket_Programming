@@ -90,7 +90,6 @@ def seller_client(sock, rdtport, packet_loss_rate):
             if "Buyer's IP:" in message:
                 buyer_ip = message.split("Buyer's IP: ")[1].strip()
                 # print(buyer_ip) 
-                break
             if "Disconnecting" in message:
                 handle_file_send(seller_ip, rdtport, packet_loss_rate)
                 break
@@ -125,7 +124,6 @@ def buyer_client(sock, rdtport, packet_loss_rate):
             if "Seller's IP:" in message:
                 seller_ip = message.split("Seller's IP: ")[1].strip()
                 # print(seller_ip)
-                break
             if "Unfortunately" in message:
                 return
             if "Disconnecting" in message:
