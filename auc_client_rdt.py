@@ -173,7 +173,6 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                     message, addr = udp_socket.recvfrom(1024)
                     ## simulating the packet loss
                     if np.random.binomial(1, packet_loss_rate) == 1:
-                        print(f"Msg re-sent: {seq_num}")
                         print(f"Ack dropped: {seq_num}")
                         continue 
                     message = json.loads(message.decode())
@@ -185,7 +184,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                         print("Unexpected ACK or from unknown IP. Discarding.")
                         continue
                 except socket.timeout:
-                    print("Timeout waiting for start message acknowledgment. Retrying.")
+                    print(f"Msg re-sent: {seq_num}")
                     udp_socket.sendto(json.dumps(start_message).encode(), (buyer_ip, rdtport))
                     print(f"Sending control seq 0: start {file_size}")
                     continue
@@ -211,7 +210,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                         # Wait for an acknowledgment
                         response, addr = udp_socket.recvfrom(1024)
                         if np.random.binomial(1, packet_loss_rate) == 1:
-                            print(f"Msg re-sent: {seq_num}")
+                           
                             print(f"Ack dropped: {seq_num}")
                             continue  ## skipping the further processing
                         response_message = json.loads(response.decode())
@@ -223,7 +222,7 @@ def handle_file_send(buyer_ip, rdtport, packet_loss_rate=0.0):
                         else:
                             print("Received invalid ACK or from unknown IP. Resending packet.")
                     except socket.timeout:
-                        print(f"Timeout waiting for ACK. Resending packet with sequence {seq_num}.")
+                         print(f"Msg re-sent: {seq_num}")
 
         # Send end-of-transmission control message (TYPE=0)
         end_message = {
