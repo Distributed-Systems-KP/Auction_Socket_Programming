@@ -94,7 +94,7 @@ def seller_client(sock, rdtport, packet_loss_rate):
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
-    handle_file_send(seller_ip, rdtport, packet_loss_rate)
+    handle_file_send(buyer_ip, rdtport, packet_loss_rate)
 
     # Starting a thread to handle incoming messages from the server
     #threading.Thread(target=handle_server_messages, args=(sock,), daemon=True).start()
