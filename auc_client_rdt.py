@@ -91,6 +91,9 @@ def seller_client(sock, rdtport, packet_loss_rate):
                 buyer_ip = message.split("Buyer's IP: ")[1].strip()
                 # print(buyer_ip) 
                 break
+            if "Disconnecting":
+                handle_file_send(seller_ip, rdtport, packet_loss_rate)
+                break
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
@@ -125,11 +128,14 @@ def buyer_client(sock, rdtport, packet_loss_rate):
                 break
             if "Unfortunately" in message:
                 return
+            if "Disconnecting":
+                handle_file_receive(seller_ip, rdtport, packet_loss_rate)
+                break
         except Exception as e:
             print(f"Error receiving message from server: {e}")
             break
     
-    handle_file_receive(seller_ip, rdtport, packet_loss_rate)
+    
 
 def open_udp_socket(rdtport):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
