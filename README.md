@@ -167,6 +167,6 @@ After the auction concludes, the seller transfers a file to the winning buyer us
 
 ## Screenshots and Logs
 
-![Alt text](./image.png)
+![Alt text](./graphs/image.png)
 
-![Alt text](./image2.png)
+![Alt text](./graphs/image2.png)
